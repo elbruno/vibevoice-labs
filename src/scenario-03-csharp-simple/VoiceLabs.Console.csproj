@@ -8,4 +8,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="CSnakes.Runtime" Version="1.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="python\vibevoice_tts.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="python\requirements.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

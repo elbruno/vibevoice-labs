@@ -270,61 +270,35 @@ From the Aspire dashboard:
 
 ---
 
-## Scenario 3: Simple C# Console App
+## Scenario 3: Simple C# Console App (CSnakes)
 
-A .NET 10 console app that runs VibeVoice TTS directly by invoking the Python model from C# via `System.Diagnostics.Process`.
+A .NET 10 console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly in the .NET process.
 
-> **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
-
-### Step 1: Install Python Dependencies
+### Run the Console App
 
 ```bash
 cd src/scenario-03-csharp-simple
-pip install -r requirements.txt
-```
-
-### Step 2: Run the Console App
-
-```bash
 dotnet run
 ```
+
+CSnakes auto-downloads Python and installs dependencies on first run.
 
 ### Expected Output
 
 ```
-🎙️  VibeVoice TTS — C# Console Demo (Direct Model)
-🐍 Python: python
-📂 Script: .../tts_helper.py
+🎙️  VibeVoice TTS — C# Console Demo (CSnakes)
 
-🔍 Step 2: Verifying Python environment...
-   ✅ VibeVoice OK
+🐍 Step 1: Setting up embedded Python environment...
 
-🗣️  Step 3: Selected voice: Carter
+🗣️  Step 2: Voice: Carter
+📝 Text: "Hello! Welcome to VibeVoice Labs..."
 
-📝 Step 4: Text to synthesize:
-   "Hello! Welcome to VibeVoice Labs..."
-
-🎵 Step 5: Generating audio...
-   🐍 Loading VibeVoice-Realtime-0.5B model...
-   🐍 Model loaded on cpu!
-   🐍 Using voice: Carter (en-Carter_man.pt)
-   🐍 Generating audio for: 'Hello! Welcome to VibeVoice Labs...'
-   🐍 Saved: output.wav (475.0 KB, 10.13s)
+🎵 Step 3: Generating audio...
 
 ✅ Audio generated successfully!
    📁 File:    output.wav
    📏 Size:    475.0 KB
    🗣️  Voice:   Carter
-```
-
-### Configuration
-
-Set the Python executable path if Python is not on PATH:
-
-```bash
-# Windows PowerShell
-$env:PYTHON_PATH = "C:\path\to\.venv\Scripts\python.exe"
-dotnet run
 ```
 
 ---
@@ -706,7 +680,6 @@ cd VoiceLabs.AppHost && dotnet run
 ### Scenario 3 Commands
 ```bash
 cd src/scenario-03-csharp-simple
-pip install -r requirements.txt
 dotnet run
 ```
 

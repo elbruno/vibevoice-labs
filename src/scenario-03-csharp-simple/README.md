@@ -1,66 +1,41 @@
-# Scenario 3 — C# Console Simple Demo (Direct Model)
+# Scenario 3 — C# Console Simple Demo (CSnakes)
 
-A simple C# console app that runs VibeVoice TTS **directly** by invoking the Python model from C# using `System.Diagnostics.Process`. No HTTP backend required — the model runs locally.
+A simple C# console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly inside the .NET process. No subprocess calls, no HTTP backends — the Python interpreter runs in-process.
 
 ## How It Works
 
 ```
-C# Program.cs  →  python tts_helper.py  →  VibeVoice Model  →  output.wav
-(orchestrator)     (TTS engine)              (0.5B params)
+C# Program.cs  →  CSnakes (embedded CPython)  →  vibevoice_tts.py  →  output.wav
+(.NET host)        (in-process Python runtime)     (VibeVoice model)
 ```
 
-The C# app orchestrates the flow: takes user input, invokes the Python TTS helper script, streams progress output, and reports the result.
+CSnakes embeds a real CPython interpreter inside the .NET process and auto-generates typed C# wrappers from the type-annotated Python functions.
 
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Python 3.11+](https://python.org) with VibeVoice installed
+- Internet access on first run (CSnakes auto-downloads Python + VibeVoice model ~1GB)
 
 ## Quick Start
 
-### 1. Install Python dependencies
-
 ```bash
 cd src/scenario-03-csharp-simple
-pip install -r requirements.txt
-```
-
-Or use the shared repo-root virtual environment (see root README).
-
-### 2. Run the console app
-
-```bash
 dotnet run
 ```
 
 The app will:
-1. Verify Python and VibeVoice are installed
-2. Invoke `tts_helper.py` with the selected text and voice
-3. Stream progress output (model loading, generation)
+1. Set up an embedded Python environment via CSnakes
+2. Auto-install Python dependencies (first run)
+3. Load the VibeVoice model and generate audio
 4. Save `output.wav` in the current directory
-
-## Configuration
-
-| Variable | Default | Description |
-|---|---|---|
-| `PYTHON_PATH` | `python` | Path to Python executable (use if Python is not on PATH) |
-
-```bash
-# Example: use a specific Python from a virtual environment
-set PYTHON_PATH=C:\path\to\.venv\Scripts\python.exe
-dotnet run
-```
 
 ## What Each Step Does
 
 | Step | Description |
 |---|---|
-| **1** | Configure Python path and locate `tts_helper.py` |
-| **2** | Verify Python is available and VibeVoice is installed |
-| **3** | Select a voice preset (Carter, Davis, Emma, Frank, Grace, Mike) |
-| **4** | Define the text to synthesize |
-| **5** | Generate audio by invoking `tts_helper.py` via `Process` |
-| **6** | Verify and report the output WAV file |
+| **1** | CSnakes configures embedded Python with virtual environment |
+| **2** | Select voice preset and text to synthesize |
+| **3** | Call `vibevoice_tts.synthesize_speech()` via CSnakes interop |
 
 ## Trying Different Voices
 
@@ -79,7 +54,7 @@ var voice = "Carter";    // Male, clear American English (default)
 
 | File | Purpose |
 |---|---|
-| `Program.cs` | C# orchestrator — invokes Python, handles output |
-| `tts_helper.py` | Python TTS engine — loads model, generates audio |
-| `requirements.txt` | Python dependencies for tts_helper.py |
-| `VoiceLabs.Console.csproj` | .NET 10 project file |
+| `Program.cs` | C# host — configures CSnakes, calls Python TTS |
+| `python/vibevoice_tts.py` | Python TTS module (embedded via CSnakes) |
+| `python/requirements.txt` | Python dependencies (auto-installed by CSnakes) |
+| `VoiceLabs.Console.csproj` | .NET 10 project file with CSnakes NuGet |

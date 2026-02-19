@@ -1,32 +1,32 @@
 """
-VibeVoice TTS Helper Script
-============================
-Called by the C# console app to generate speech using the VibeVoice model directly.
-This script is the "engine" — C# is the orchestrator.
+VibeVoice TTS Module for CSnakes
+=================================
+This module is called from C# via CSnakes (embedded CPython in .NET).
+CSnakes generates typed C# wrappers from the type-annotated functions below.
 
-Usage:
-  python tts_helper.py --text "Hello world" --voice "Carter" --output "output.wav"
-
-Arguments:
-  --text    Text to synthesize
-  --voice   Voice preset name (Carter, Davis, Emma, Frank, Grace, Mike)
-  --output  Output WAV file path
+Important: All public functions MUST have type annotations — CSnakes requires
+them to generate the C# interop layer.
 """
 
-import argparse
 import os
 import sys
 import glob
 import copy
 import torch
 
-def main():
-    parser = argparse.ArgumentParser(description="VibeVoice TTS Helper")
-    parser.add_argument("--text", required=True, help="Text to synthesize")
-    parser.add_argument("--voice", default="Carter", help="Voice preset name")
-    parser.add_argument("--output", default="output.wav", help="Output WAV file path")
-    args = parser.parse_args()
 
+def synthesize_speech(text: str, voice: str, output_path: str) -> str:
+    """
+    Synthesize speech from text using VibeVoice and save as WAV.
+
+    Args:
+        text: The text to synthesize
+        voice: Voice preset name (Carter, Davis, Emma, Frank, Grace, Mike)
+        output_path: Path where the WAV file will be saved
+
+    Returns:
+        A status message string
+    """
     # =========================================================================
     # Step 1: Download voice presets if needed
     # =========================================================================
@@ -47,7 +47,7 @@ def main():
             if not os.path.exists(dest):
                 print(f"  Downloading {vf}...")
                 urllib.request.urlretrieve(f"{base_url}/{vf}", dest)
-        print(f"  Done! Downloaded voice presets to {voices_dir}")
+        print(f"  Done! Voice presets saved to {voices_dir}")
 
     # =========================================================================
     # Step 2: Load model and processor
@@ -83,26 +83,25 @@ def main():
     # =========================================================================
     # Step 3: Load voice preset
     # =========================================================================
-    voice_files = [f for f in glob.glob(os.path.join(voices_dir, "*.pt"))
-                   if args.voice.lower() in os.path.basename(f).lower()]
+    voice_matches = [f for f in glob.glob(os.path.join(voices_dir, "*.pt"))
+                     if voice.lower() in os.path.basename(f).lower()]
 
-    if not voice_files:
-        print(f"ERROR: No voice preset found for '{args.voice}'", file=sys.stderr)
-        print(f"Available: {os.listdir(voices_dir)}", file=sys.stderr)
-        sys.exit(1)
+    if not voice_matches:
+        available = os.listdir(voices_dir)
+        return f"ERROR: No voice preset found for '{voice}'. Available: {available}"
 
-    voice_path = voice_files[0]
-    print(f"Using voice: {args.voice} ({os.path.basename(voice_path)})")
+    voice_path = voice_matches[0]
+    print(f"Using voice: {voice} ({os.path.basename(voice_path)})")
 
     all_prefilled_outputs = torch.load(voice_path, map_location=device, weights_only=False)
 
     # =========================================================================
     # Step 4: Generate audio
     # =========================================================================
-    print(f"Generating audio for: '{args.text[:80]}...'")
+    print(f"Generating audio for: '{text[:80]}...'")
 
     inputs = processor.process_input_with_cached_prompt(
-        text=args.text,
+        text=text,
         cached_prompt=all_prefilled_outputs,
         padding=True,
         return_tensors="pt",
@@ -125,14 +124,11 @@ def main():
     # Step 5: Save WAV file
     # =========================================================================
     audio = output.speech_outputs[0]
-    processor.save_audio(audio, output_path=args.output)
+    processor.save_audio(audio, output_path=output_path)
 
-    file_size = os.path.getsize(args.output)
+    file_size = os.path.getsize(output_path)
     sample_rate = 24000
     audio_samples = audio.shape[-1] if len(audio.shape) > 0 else len(audio)
     duration = audio_samples / sample_rate
 
-    print(f"Saved: {args.output} ({file_size / 1024:.1f} KB, {duration:.2f}s)")
-
-if __name__ == "__main__":
-    main()
+    return f"OK: Saved {output_path} ({file_size / 1024:.1f} KB, {duration:.2f}s)"

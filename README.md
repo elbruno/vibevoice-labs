@@ -46,15 +46,16 @@ src/scenario-02-fullstack/
 ```
 
 ### Scenario 3: Simple C# Console App
-A .NET 10 console app that runs VibeVoice TTS directly by invoking the Python model from C# via `System.Diagnostics.Process`. No HTTP backend needed. **Beginner level.**
+A .NET 10 console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly in the .NET process. No subprocess calls or HTTP backends. **Beginner level.**
 
 ```
 src/scenario-03-csharp-simple/
-├── Program.cs        # C# orchestrator using Process
-├── tts_helper.py     # Python TTS engine (VibeVoice model)
-├── requirements.txt  # Python dependencies
-├── .csproj          # Project file
-└── README.md        # Quick start guide
+├── Program.cs              # C# host using CSnakes
+├── python/
+│   ├── vibevoice_tts.py    # Python TTS module (embedded via CSnakes)
+│   └── requirements.txt    # Auto-installed by CSnakes
+├── .csproj                 # Project file with CSnakes NuGet
+└── README.md               # Quick start guide
 ```
 
 ### Scenario 4: Microsoft.Extensions.AI + VibeVoice
@@ -160,9 +161,10 @@ Open the Aspire dashboard to access:
 
 ```bash
 cd src/scenario-03-csharp-simple
-pip install -r requirements.txt
 dotnet run
 ```
+
+CSnakes auto-downloads Python and installs dependencies on first run.
 
 ### Scenario 4 — Microsoft.Extensions.AI Agent
 

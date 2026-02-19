@@ -1,0 +1,5 @@
+# Python dependencies for CSnakes-embedded VibeVoice TTS (Scenario 3)
+# These are auto-installed by CSnakes into the virtual environment.
+vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
+torch>=2.0.0
+soundfile>=0.12.0

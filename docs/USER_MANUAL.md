@@ -188,31 +188,25 @@ dotnet run
 
 ## Scenario 3: Simple C# Console
 
-A console app that runs VibeVoice TTS directly from C# by invoking the Python model via `System.Diagnostics.Process`.
+A console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly in the .NET process. No subprocess calls or HTTP backends.
 
 ### Quick Start
 
 ```bash
 cd src/scenario-03-csharp-simple
-pip install -r requirements.txt
 dotnet run
 ```
 
 ### What Happens
 
-1. **Environment Check** — Verifies Python and VibeVoice are installed
+1. **CSnakes Setup** — Embeds Python interpreter and auto-installs dependencies
 2. **Voice Selection** — Uses a pre-configured voice (Carter by default)
-3. **Text-to-Speech** — Invokes `tts_helper.py` which loads the model and generates audio
+3. **Text-to-Speech** — Calls `vibevoice_tts.synthesize_speech()` via CSnakes interop
 4. **Save Output** — Stores result as `output.wav`
 
 ### Configuration
 
-Set a custom Python path:
-
-```bash
-$env:PYTHON_PATH = "C:\path\to\python.exe"
-dotnet run
-```
+CSnakes auto-manages the Python environment. No manual Python setup needed.
 
 ---
 

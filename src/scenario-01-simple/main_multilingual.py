@@ -39,7 +39,7 @@ LANGUAGE_CONFIG = {
     "sp": {
         "name": "Spanish",
         "voices": ["Spk1_man"],
-        "sample_text": "¡Hola gorda! Todo viento? Como te baila? Aqui estamos de partuza codeando con Copilot."
+        "sample_text": "¡Hola! Esta es una demostración de VibeVoice texto a voz en español. Estamos en Jueves en Quack."
     },
     "de": {
         "name": "German",

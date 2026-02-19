@@ -90,3 +90,18 @@
   - All source files exist: MainPage.xaml, Services/TtsService.cs, platform scaffolding
   - README.md accurate with workload installation instructions and platform-specific run commands
   - Code structure is complete and correct; builds cleanly once workload is installed
+
+### 2026-02-19: Scenario 3 — Rewritten to Direct Model Invocation
+- **Complete rewrite** from HTTP client wrapper to direct VibeVoice model invocation via `System.Diagnostics.Process`
+- **Approach:** C# orchestrates the flow, Python `tts_helper.py` is the TTS engine that loads the model directly
+- **Why Process over pythonnet:** Simpler, no Python runtime configuration in C#, works with any Python venv
+- **New files:**
+  - `src/scenario-03-csharp-simple/tts_helper.py` — Python script that accepts `--text`, `--voice`, `--output` args
+  - `src/scenario-03-csharp-simple/requirements.txt` — Python deps (vibevoice, torch, soundfile)
+- **Modified files:**
+  - `src/scenario-03-csharp-simple/Program.cs` — Removed all HttpClient/JSON code, uses Process instead
+  - `src/scenario-03-csharp-simple/README.md` — Updated for new architecture
+  - Root `README.md`, `docs/GETTING_STARTED.md`, `docs/USER_MANUAL.md`, `docs/ARCHITECTURE.md` — All updated
+- **Config:** `PYTHON_PATH` env var replaces `VIBEVOICE_BACKEND_URL`
+- **Build:** ✅ Verified with `dotnet build` (zero errors)
+- **Voice presets:** Uses same Capitalized name format as Scenario 1 (Carter, Davis, Emma, etc.)
