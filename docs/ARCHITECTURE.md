@@ -100,10 +100,12 @@ Microsoft's VibeVoice-Realtime-0.5B model for text-to-speech synthesis.
 
 **Specifications:**
 - **Parameters:** 0.5 billion
-- **Latency:** ~300ms to first audio (real-time capable)
+- **Latency:** ~200ms to first audio (real-time capable)
 - **Sample Rate:** 24kHz
-- **Streaming:** Supports chunk-by-chunk generation
-- **Languages:** 10+ languages with multiple voices
+- **Voice Presets:** Pre-computed .pt files for each speaker (Carter, Davis, Emma, Frank, Grace, Mike)
+- **Package:** Installed from GitHub: `vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git`
+- **Key Classes:** `VibeVoiceStreamingForConditionalGenerationInference` + `VibeVoiceStreamingProcessor`
+- **Inference:** Uses `processor.process_input_with_cached_prompt()` with voice preset files
 
 ## Data Flow
 
@@ -163,10 +165,10 @@ Microsoft's VibeVoice-Realtime-0.5B model for text-to-speech synthesis.
 **Voice Object:**
 ```json
 {
-  "id": "en-US-Aria",
-  "name": "Aria",
-  "language": "en-US",
-  "style": "general"
+  "id": "en-carter",
+  "name": "Carter",
+  "language": "en",
+  "style": "male"
 }
 ```
 
@@ -174,7 +176,7 @@ Microsoft's VibeVoice-Realtime-0.5B model for text-to-speech synthesis.
 ```json
 {
   "text": "Hello, world!",
-  "voice_id": "en-US-Aria",
+  "voice_id": "en-carter",
   "output_format": "wav"
 }
 ```

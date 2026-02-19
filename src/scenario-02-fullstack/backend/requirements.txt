@@ -7,11 +7,8 @@ fastapi>=0.115.0
 # Uvicorn - ASGI server for running FastAPI
 uvicorn>=0.32.0
 
-# VibeVoice TTS Model
-vibevoice>=0.1.0
-
-# PyTorch - Deep learning framework (required by VibeVoice)
-torch>=2.0.0
+# VibeVoice TTS Model (installed from GitHub with streaming TTS support)
+vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
 
 # SoundFile - Audio file I/O for WAV export
 soundfile>=0.12.0

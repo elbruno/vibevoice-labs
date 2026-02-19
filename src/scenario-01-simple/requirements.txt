@@ -1,10 +1,6 @@
 # VibeVoice Labs - Simple Demo Dependencies
 # ==========================================
 
-# VibeVoice TTS Model (includes torch, soundfile, numpy as dependencies)
-vibevoice>=0.0.1
-
-# PyTorch - Deep learning framework (required by VibeVoice)
-# Install with CUDA support for GPU acceleration:
-#   pip install torch --index-url https://download.pytorch.org/whl/cu121
-torch>=2.0.0
+# VibeVoice TTS Model (installed from GitHub with streaming TTS support)
+# pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
+vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git

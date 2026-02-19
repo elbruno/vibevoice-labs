@@ -70,16 +70,16 @@ GET /api/voices
 {
   "voices": [
     {
-      "id": "en-US-Aria",
-      "name": "Aria",
-      "language": "en-US",
-      "style": "general"
+      "id": "en-carter",
+      "name": "Carter",
+      "language": "en",
+      "style": "male"
     },
     {
-      "id": "en-US-Guy",
-      "name": "Guy",
-      "language": "en-US",
-      "style": "general"
+      "id": "en-emma",
+      "name": "Emma",
+      "language": "en",
+      "style": "female"
     }
   ]
 }
@@ -121,7 +121,7 @@ Content-Type: application/json
 ```json
 {
   "text": "Hello, world!",
-  "voice_id": "en-US-Aria",
+  "voice_id": "en-carter",
   "output_format": "wav"
 }
 ```
@@ -129,7 +129,7 @@ Content-Type: application/json
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `text` | string | Yes | - | Text to synthesize (1-1000 characters) |
-| `voice_id` | string | No | `"en-US-Aria"` | Voice ID from `/api/voices` |
+| `voice_id` | string | No | `"en-carter"` | Voice ID from `/api/voices` |
 | `output_format` | string | No | `"wav"` | Audio format (only `"wav"` supported) |
 
 #### Response
@@ -180,7 +180,7 @@ curl -X POST http://localhost:5100/api/tts \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Guten Tag! Willkommen bei VibeVoice.",
-    "voice_id": "de-DE-Katja"
+    "voice_id": "en-emma"
   }' \
   --output german_speech.wav
 ```
@@ -193,7 +193,7 @@ response = requests.post(
     "http://localhost:5100/api/tts",
     json={
         "text": "Hello from Python!",
-        "voice_id": "en-US-Aria"
+        "voice_id": "en-carter"
     }
 )
 
@@ -211,7 +211,7 @@ const response = await fetch('http://localhost:5100/api/tts', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     text: 'Hello from JavaScript!',
-    voice_id: 'en-US-Aria'
+    voice_id: 'en-carter'
   })
 });
 
@@ -227,55 +227,20 @@ if (response.ok) {
 
 ## Voice Reference
 
-### English Voices
+### Available Voices
 
-| ID | Name | Language | Style |
-|----|------|----------|-------|
-| `en-US-Aria` | Aria | en-US | general |
-| `en-US-Guy` | Guy | en-US | general |
-| `en-US-Jenny` | Jenny | en-US | conversational |
-| `en-GB-Sonia` | Sonia | en-GB | general |
-| `en-AU-Natasha` | Natasha | en-AU | general |
+VibeVoice uses pre-computed voice preset files (.pt) for each speaker.
 
-### European Voices
+| ID | Name | Gender | Preset File |
+|----|------|--------|-------------|
+| `en-carter` | Carter | Male | `en-Carter_man.pt` |
+| `en-davis` | Davis | Male | `en-Davis_man.pt` |
+| `en-emma` | Emma | Female | `en-Emma_woman.pt` |
+| `en-frank` | Frank | Male | `en-Frank_man.pt` |
+| `en-grace` | Grace | Female | `en-Grace_woman.pt` |
+| `en-mike` | Mike | Male | `en-Mike_man.pt` |
 
-| ID | Name | Language | Style |
-|----|------|----------|-------|
-| `de-DE-Katja` | Katja | de-DE | general |
-| `fr-FR-Denise` | Denise | fr-FR | general |
-| `it-IT-Elsa` | Elsa | it-IT | general |
-| `es-ES-Elvira` | Elvira | es-ES | general |
-| `pt-BR-Francisca` | Francisca | pt-BR | general |
-| `nl-NL-Colette` | Colette | nl-NL | general |
-| `pl-PL-Paulina` | Paulina | pl-PL | general |
-
-### Asian Voices
-
-| ID | Name | Language | Style |
-|----|------|----------|-------|
-| `ja-JP-Nanami` | Nanami | ja-JP | general |
-| `ko-KR-SunHi` | SunHi | ko-KR | general |
-
-### Voice ID to Speaker Mapping
-
-Internal mapping from API voice IDs to VibeVoice speaker codes:
-
-| Voice ID | Speaker Code |
-|----------|--------------|
-| `en-US-Aria` | `EN-Default` |
-| `en-US-Guy` | `EN-US` |
-| `en-US-Jenny` | `EN-US` |
-| `en-GB-Sonia` | `EN-BR` |
-| `en-AU-Natasha` | `EN-AU` |
-| `de-DE-Katja` | `DE` |
-| `fr-FR-Denise` | `FR` |
-| `it-IT-Elsa` | `IT` |
-| `es-ES-Elvira` | `ES` |
-| `pt-BR-Francisca` | `PT` |
-| `nl-NL-Colette` | `NL` |
-| `pl-PL-Paulina` | `PL` |
-| `ja-JP-Nanami` | `JP` |
-| `ko-KR-SunHi` | `KR` |
+Voice presets are automatically downloaded from the [VibeVoice GitHub repo](https://github.com/microsoft/VibeVoice/tree/main/demo/voices/streaming_model) on first use.
 
 ---
 

@@ -29,8 +29,8 @@ VibeVoice Labs demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B
 
 | Feature | Description |
 |---------|-------------|
-| 🔊 Natural Speech | High-quality TTS with ~300ms latency |
-| 🌍 Multilingual | 14 voices across 10 languages |
+| 🔊 Natural Speech | High-quality TTS with ~200ms latency |
+| 🌍 Voice Presets | 6 English voices (Carter, Davis, Emma, Frank, Grace, Mike) |
 | 🎨 Modern UI | Glassmorphism design with dark theme |
 | 📥 Download | Export audio as WAV files |
 
@@ -113,8 +113,7 @@ Saving audio to output.wav...
 Open `main.py` to:
 
 - **Change the text:** Edit the `text` variable
-- **Try different voices:** Uncomment the multilingual examples
-- **Enable streaming:** Use `generate_stream()` for long texts
+- **Try different voices:** Change the `SPEAKER_NAME` variable (Carter, Davis, Emma, Frank, Grace, Mike)
 
 ---
 
@@ -201,16 +200,19 @@ Click any sample to populate the text input.
 
 <!-- Screenshot placeholder: Voice dropdown open -->
 
-Choose from **14 voices** in the dropdown:
+Choose from **6 voice presets** in the dropdown:
 
-- Voices are grouped by language
-- Format: **Name (Language) - Style**
-- Default: **Aria (en-US) - general**
+- All voices are English with distinct timbres
+- Format: **Name (Gender)**
+- Default: **Carter (Male)**
 
-**Popular choices:**
-- `Aria` — Clear, professional American English
-- `Katja` — Natural German pronunciation
-- `Nanami` — Authentic Japanese voice
+**Available voices:**
+- `Carter` — Male, clear American English
+- `Emma` — Female voice
+- `Frank` — Male voice
+- `Grace` — Female voice
+- `Davis` — Male voice
+- `Mike` — Male voice
 
 #### 4. Generate Speech
 
@@ -255,34 +257,18 @@ Click the **✕** button to dismiss errors.
 
 ## Available Voices
 
-### English Voices
+VibeVoice uses pre-computed voice preset files (.pt) for each speaker. Voice presets are automatically downloaded from the VibeVoice GitHub repository on first use.
 
-| Voice | ID | Accent | Best For |
-|-------|-----|--------|----------|
-| Aria | `en-US-Aria` | American | General purpose |
-| Guy | `en-US-Guy` | American | Narration |
-| Jenny | `en-US-Jenny` | American | Conversational |
-| Sonia | `en-GB-Sonia` | British | UK content |
-| Natasha | `en-AU-Natasha` | Australian | AU content |
+### Voice Presets
 
-### European Voices
-
-| Voice | ID | Language | Sample Text |
-|-------|-----|----------|-------------|
-| Katja | `de-DE-Katja` | German | "Guten Tag!" |
-| Denise | `fr-FR-Denise` | French | "Bonjour!" |
-| Elsa | `it-IT-Elsa` | Italian | "Ciao!" |
-| Elvira | `es-ES-Elvira` | Spanish | "¡Hola!" |
-| Francisca | `pt-BR-Francisca` | Portuguese | "Olá!" |
-| Colette | `nl-NL-Colette` | Dutch | "Hallo!" |
-| Paulina | `pl-PL-Paulina` | Polish | "Cześć!" |
-
-### Asian Voices
-
-| Voice | ID | Language | Sample Text |
-|-------|-----|----------|-------------|
-| Nanami | `ja-JP-Nanami` | Japanese | "こんにちは！" |
-| SunHi | `ko-KR-SunHi` | Korean | "안녕하세요!" |
+| Voice | ID | Gender | Preset File |
+|-------|-----|--------|-------------|
+| Carter | `en-carter` | Male | `en-Carter_man.pt` |
+| Davis | `en-davis` | Male | `en-Davis_man.pt` |
+| Emma | `en-emma` | Female | `en-Emma_woman.pt` |
+| Frank | `en-frank` | Male | `en-Frank_man.pt` |
+| Grace | `en-grace` | Female | `en-Grace_woman.pt` |
+| Mike | `en-mike` | Male | `en-Mike_man.pt` |
 
 ---
 
@@ -293,7 +279,7 @@ Click the **✕** button to dismiss errors.
 1. **Use punctuation** — Commas create pauses, periods end sentences
 2. **Write naturally** — Conversational text sounds better than formal
 3. **Test pronunciation** — Some proper nouns may need phonetic spelling
-4. **Match voice to language** — Use German voice for German text
+4. **Pick the right voice** — Try different presets for your content
 
 ### For Best Performance
 

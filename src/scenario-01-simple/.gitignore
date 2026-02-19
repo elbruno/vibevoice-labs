@@ -1,0 +1,11 @@
+# Downloaded voice presets (large .pt files)
+voices/
+
+# Generated audio output
+*.wav
+
+# Python virtual environment
+venv/
+
+# Python cache
+__pycache__/

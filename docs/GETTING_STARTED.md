@@ -64,7 +64,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Note:** First installation downloads the VibeVoice model (~1-2 GB).
+**Note:** First installation clones the VibeVoice repo from GitHub and downloads the model (~1-2 GB). Voice presets (~4 MB each) are auto-downloaded on first run.
 
 ### Step 4: Run the Script
 
@@ -75,16 +75,18 @@ python main.py
 ### Expected Output
 
 ```
+Downloading voice presets (first run only)...
+  Downloading en-Carter_man.pt...
 Loading VibeVoice-Realtime-0.5B model...
-Model loaded successfully!
+Model loaded successfully on cpu!
 Generating audio for: 'Hello! Welcome to VibeVoice Labs...'
 Saving audio to output.wav...
 
-✅ Audio generated successfully!
-   File: output.wav
-   Size: 45.2 KB
-   Duration: 3.25 seconds
-   Sample Rate: 24000 Hz
+Audio generated successfully!
+   File:     output.wav
+   Size:     475.0 KB
+   Duration: 10.13s
+   Speaker:  Carter
 ```
 
 ### Verification
@@ -96,9 +98,9 @@ Saving audio to output.wav...
 ### Customization
 
 Edit `main.py` to try:
-- Different input text
-- Different voices (see commented examples)
-- Streaming generation for longer texts
+- Different input text (change the `text` variable)
+- Different voices: uncomment a `SPEAKER_NAME` line (Carter, Davis, Emma, Frank, Grace, Mike)
+- The script auto-downloads voice preset files on first run
 
 ---
 
@@ -181,7 +183,7 @@ From the Aspire dashboard:
 
 2. **Voices List:** Visit `http://localhost:5100/api/voices`
    ```json
-   {"voices": [{"id": "en-US-Aria", "name": "Aria", ...}, ...]}
+   {"voices": [{"id": "en-carter", "name": "Carter", ...}, ...]}
    ```
 
 3. **Generate Speech:** Use the Blazor UI to:
@@ -213,8 +215,14 @@ Service discovery is handled automatically by Aspire. The frontend uses `http://
 
 #### "Module not found: vibevoice"
 ```bash
-# Ensure virtual environment is activated
-pip install vibevoice>=0.1.0
+# Ensure virtual environment is activated, then install from GitHub
+pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
+```
+
+#### "No module named 'vibevoice.modular.modeling_vibevoice_streaming_inference'"
+The `vibevoice` PyPI package (0.0.1) does NOT include streaming classes. You must install from GitHub:
+```bash
+pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
 ```
 
 #### "CUDA not available"

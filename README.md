@@ -13,8 +13,8 @@
 
 ## ✨ Features
 
-- 🔊 **Natural Text-to-Speech** powered by VibeVoice-Realtime-0.5B (~300ms latency)
-- 🌍 **14 Voices** across 10 languages (English, German, French, Spanish, and more)
+- 🔊 **Natural Text-to-Speech** powered by VibeVoice-Realtime-0.5B (~200ms latency)
+- 🌍 **6 English Voice Presets** (Carter, Davis, Emma, Frank, Grace, Mike) + multilingual experimental voices
 - 🎨 **Modern Blazor UI** with glassmorphism design
 - 🚀 **.NET Aspire Orchestration** for seamless service discovery
 - 📥 **Audio Download** as WAV files
@@ -76,11 +76,11 @@ src/scenario-05-batch-processing/
 ```
 
 ### Scenario 6: Real-Time Streaming
-A Python script using generate_stream() for real-time audio playback with ~300ms first-audible latency. **Intermediate level.**
+A Python script demonstrating chunked audio playback for low-latency TTS applications. **Intermediate level.**
 
 ```
 src/scenario-06-streaming-realtime/
-├── streaming_tts.py # Real-time streaming implementation
+├── stream_tts.py    # Real-time streaming implementation
 ├── requirements.txt # Python dependencies
 └── README.md        # Quick start guide
 ```
@@ -101,6 +101,7 @@ src/scenario-07-maui-mobile/
 | Requirement | Version | Installation |
 |------------|---------|--------------|
 | Python | 3.11+ | [python.org](https://python.org) |
+| Git | Latest | [git-scm.com](https://git-scm.com/) (required for pip install from GitHub) |
 | .NET SDK | 10.0+ | [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) |
 | Aspire Workload | - | `dotnet workload install aspire` |
 | GPU (optional) | CUDA 12.1+ | Recommended for faster inference |
@@ -124,7 +125,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-**Output:** `output.wav` containing synthesized speech.
+**Output:** `output.wav` containing synthesized speech. Voice presets are auto-downloaded on first run.
 
 ### Scenario 2 — Full-Stack Application
 
@@ -166,7 +167,7 @@ cd src/scenario-05-batch-processing
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-python batch_tts.py --input-dir ./texts --output-dir ./audio
+python batch_tts.py --input-dir ./sample-texts --output-dir ./output --voice carter
 ```
 
 ### Scenario 6 — Real-Time Streaming
@@ -176,7 +177,7 @@ cd src/scenario-06-streaming-realtime
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-python streaming_tts.py "Hello, this is real-time TTS!"
+python stream_tts.py
 ```
 
 ### Scenario 7 — MAUI Mobile App
@@ -243,6 +244,7 @@ vibevoice-labs/
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **TTS Engine** | [VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) | Text-to-speech synthesis |
+| **TTS Package** | [VibeVoice](https://github.com/microsoft/VibeVoice) (installed from Git) | Streaming TTS inference |
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com/) + [Python](https://python.org) | REST API for TTS |
 | **Frontend** | [Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor) + [.NET 10](https://dotnet.microsoft.com/) | Interactive web UI |
 | **Orchestration** | [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/) | Service discovery & health checks |

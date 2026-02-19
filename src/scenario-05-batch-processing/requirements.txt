@@ -1,6 +1,5 @@
-vibevoice-realtime
+vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
 click
 tqdm
 pyyaml
 soundfile
-numpy

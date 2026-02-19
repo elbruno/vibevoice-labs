@@ -1,40 +1,40 @@
 """
 VibeVoice TTS - Real-Time Streaming Demo
 =========================================
-This script demonstrates VibeVoice's streaming TTS capability using
-generate_stream(). Audio chunks are played through the speaker the instant
-they arrive, showcasing the ~300ms first-audible-latency that makes
-VibeVoice ideal for real-time voice applications.
+This script demonstrates VibeVoice's TTS capability with chunked playback.
+Audio is generated using the VibeVoice-Realtime-0.5B model, then played
+in chunks to simulate streaming playback for low-latency applications.
 
 Model: microsoft/VibeVoice-Realtime-0.5B
-- Streaming via generate_stream()
-- ~300 ms time-to-first-audio
+- Full generation then chunked playback
 - 24 kHz output sample rate
+
+Prerequisites:
+  pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
+  pip install sounddevice soundfile
 """
 
 # =============================================================================
 # STEP 1: Import Required Libraries
 # =============================================================================
-# vibevoice_realtime : The TTS model from Microsoft
-# sounddevice       : Real-time audio playback through speakers
-# numpy             : Audio buffer manipulation
-# queue             : Thread-safe queue for audio chunks
-# time              : Measuring latency and throughput
-# soundfile         : (optional) saving the full audio to disk
 
-from vibevoice_realtime import VibeVoiceRealtime
+from vibevoice.modular.modeling_vibevoice_streaming_inference import VibeVoiceStreamingForConditionalGenerationInference
+from vibevoice.processor.vibevoice_streaming_processor import VibeVoiceStreamingProcessor
+import torch
+import copy
 import numpy as np
 import time
 import sys
+import os
+import glob
 
 # Try to import sounddevice for real-time playback.
-# If unavailable (e.g. headless server), we fall back to file-only mode.
 try:
     import sounddevice as sd
     PLAYBACK_AVAILABLE = True
 except (ImportError, OSError):
     PLAYBACK_AVAILABLE = False
-    print("⚠️  sounddevice not available — will save to file instead.")
+    print("sounddevice not available -- will save to file instead.")
 
 try:
     import soundfile as sf
@@ -43,30 +43,78 @@ except ImportError:
     SAVE_AVAILABLE = False
 
 # =============================================================================
-# STEP 2: Load the VibeVoice Model
+# STEP 2: Download Voice Presets (first run only)
 # =============================================================================
-# Downloaded from HuggingFace on first run (~1 GB).
-# GPU with CUDA is recommended; CPU works but is slower.
 
-print("🔄 Loading VibeVoice-Realtime-0.5B model...")
+VOICES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "voices")
+MODEL_NAME = "microsoft/VibeVoice-Realtime-0.5B"
+SAMPLE_RATE = 24000
+
+
+def download_voices():
+    """Download English voice presets from the VibeVoice GitHub repo."""
+    if os.path.exists(VOICES_DIR) and glob.glob(os.path.join(VOICES_DIR, "*.pt")):
+        return
+    os.makedirs(VOICES_DIR, exist_ok=True)
+    import urllib.request
+    base_url = "https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model"
+    voices = ["en-Carter_man.pt", "en-Emma_woman.pt", "en-Frank_man.pt", "en-Grace_woman.pt"]
+    for vf in voices:
+        dest = os.path.join(VOICES_DIR, vf)
+        if not os.path.exists(dest):
+            print(f"  Downloading {vf}...")
+            urllib.request.urlretrieve(f"{base_url}/{vf}", dest)
+
+
+download_voices()
+
+# =============================================================================
+# STEP 3: Load the VibeVoice Model
+# =============================================================================
+
+print("Loading VibeVoice-Realtime-0.5B model...")
 load_start = time.perf_counter()
-model = VibeVoiceRealtime.from_pretrained("microsoft/VibeVoice-Realtime-0.5B")
+
+processor = VibeVoiceStreamingProcessor.from_pretrained(MODEL_NAME)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+dtype = torch.bfloat16 if device == "cuda" else torch.float32
+attn_impl = "flash_attention_2" if device == "cuda" else "sdpa"
+
+try:
+    model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+        MODEL_NAME, torch_dtype=dtype, attn_implementation=attn_impl,
+        device_map=device if device == "cuda" else "cpu",
+    )
+except Exception:
+    model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+        MODEL_NAME, torch_dtype=dtype, attn_implementation="sdpa", device_map="cpu",
+    )
+    device = "cpu"
+
+model.eval()
+model.set_ddpm_inference_steps(num_steps=5)
+
 load_elapsed = time.perf_counter() - load_start
-print(f"✅ Model loaded in {load_elapsed:.2f}s")
+print(f"Model loaded on {device} in {load_elapsed:.2f}s")
 
 # =============================================================================
-# STEP 3: Audio Output Configuration
+# STEP 4: Select Voice and Define Text
 # =============================================================================
-# VibeVoice outputs 24 kHz mono audio.
 
-SAMPLE_RATE = 24000  # Hz — VibeVoice native sample rate
-CHANNELS = 1
+SPEAKER_NAME = "Carter"   # Default male voice
+# SPEAKER_NAME = "Emma"    # Female voice
+# SPEAKER_NAME = "Frank"   # Male voice
+# SPEAKER_NAME = "Grace"   # Female voice
 
-# =============================================================================
-# STEP 4: Define the Text to Synthesize
-# =============================================================================
-# A longer paragraph highlights the streaming benefit: you hear the first
-# words almost instantly while the rest is still being generated.
+# Load voice preset
+voice_files = [f for f in glob.glob(os.path.join(VOICES_DIR, "*.pt"))
+               if SPEAKER_NAME.lower() in os.path.basename(f).lower()]
+if not voice_files:
+    raise FileNotFoundError(f"No voice preset for '{SPEAKER_NAME}'")
+
+all_prefilled_outputs = torch.load(voice_files[0], map_location=device, weights_only=False)
+print(f"Using voice: {SPEAKER_NAME}")
 
 text = (
     "Welcome to VibeVoice Labs! This demonstration showcases real-time "
@@ -78,97 +126,94 @@ text = (
     "application where perceived latency matters."
 )
 
-# --- Commented alternatives for different voices ---
-# speaker = "EN-US"       # American English
-# speaker = "EN-BR"       # British English
-# speaker = "EN-AU"       # Australian English
-# speaker = "DE"          # German  — change text accordingly
-# speaker = "FR"          # French
-# speaker = "ES"          # Spanish
-# speaker = "JP"          # Japanese
-speaker = "EN-Default"  # Standard English (active)
-
 # =============================================================================
-# STEP 5: Stream Generation — Play Each Chunk Immediately
+# STEP 5: Generate Audio and Play in Chunks
 # =============================================================================
-# model.generate_stream() yields audio chunks as numpy arrays.
-# We push each chunk straight to the speaker via sounddevice and collect
-# all chunks so we can optionally save the full audio afterwards.
 
-print(f"\n🎙️  Streaming TTS for {len(text)} characters...")
-print(f"   Speaker : {speaker}")
-print(f"   Playback: {'🔊 real-time via sounddevice' if PLAYBACK_AVAILABLE else '💾 file-only (no audio device)'}")
+CHUNK_SIZE = SAMPLE_RATE // 4  # 250ms chunks
+
+print(f"\nGenerating TTS for {len(text)} characters...")
+print(f"   Speaker:  {SPEAKER_NAME}")
+print(f"   Playback: {'real-time via sounddevice' if PLAYBACK_AVAILABLE else 'file-only (no audio device)'}")
 print()
-
-all_chunks: list[np.ndarray] = []
-chunk_count = 0
-first_chunk_time = None
 
 gen_start = time.perf_counter()
 
-for chunk in model.generate_stream(text=text, speaker=speaker):
-    now = time.perf_counter()
+inputs = processor.process_input_with_cached_prompt(
+    text=text,
+    cached_prompt=all_prefilled_outputs,
+    padding=True,
+    return_tensors="pt",
+    return_attention_mask=True,
+)
+for k, v in inputs.items():
+    if torch.is_tensor(v):
+        inputs[k] = v.to(device)
 
-    # Record time-to-first-chunk (the headline latency metric)
-    if first_chunk_time is None:
-        first_chunk_time = now - gen_start
+output = model.generate(
+    **inputs,
+    tokenizer=processor.tokenizer,
+    cfg_scale=1.5,
+    generation_config={"do_sample": False},
+    all_prefilled_outputs=copy.deepcopy(all_prefilled_outputs),
+)
 
-    chunk_count += 1
-    all_chunks.append(chunk)
+full_audio = output.speech_outputs[0]
+if hasattr(full_audio, "cpu"):
+    full_audio = full_audio.cpu().numpy()
 
-    # --- Real-time playback ---
+gen_elapsed = time.perf_counter() - gen_start
+
+# Split into chunks for simulated streaming playback
+all_chunks = [full_audio[i:i + CHUNK_SIZE] for i in range(0, len(full_audio), CHUNK_SIZE)]
+chunk_count = len(all_chunks)
+
+play_start = time.perf_counter()
+
+for idx, chunk in enumerate(all_chunks):
     if PLAYBACK_AVAILABLE:
-        # Play chunk immediately (blocking until the device consumes it so
-        # chunks queue up naturally without overruns)
         sd.play(chunk, samplerate=SAMPLE_RATE, blocking=True)
-
-    # --- Terminal progress indicator ---
-    bar = "█" * chunk_count
-    samples = sum(len(c) for c in all_chunks)
-    elapsed = now - gen_start
+    bar = "#" * (idx + 1)
+    samples = sum(len(all_chunks[j]) for j in range(idx + 1))
+    elapsed = time.perf_counter() - play_start
     sys.stdout.write(
-        f"\r   Chunks: {bar} {chunk_count}  |  "
-        f"Samples: {samples:,}  |  "
-        f"Elapsed: {elapsed:.2f}s"
+        f"\r   Chunks: {bar} {idx + 1}/{chunk_count}  |  "
+        f"Samples: {samples:,}  |  Elapsed: {elapsed:.2f}s"
     )
     sys.stdout.flush()
 
-gen_elapsed = time.perf_counter() - gen_start
+play_elapsed = time.perf_counter() - play_start
 
 # =============================================================================
 # STEP 6: Show Timing Info
 # =============================================================================
-# These numbers let you verify the ~300 ms first-audible-latency claim.
 
-full_audio = np.concatenate(all_chunks) if all_chunks else np.array([])
 audio_duration = len(full_audio) / SAMPLE_RATE
 
 print("\n")
 print("=" * 56)
-print("  📊  Streaming Performance Summary")
+print("  Streaming Performance Summary")
 print("=" * 56)
-print(f"  ⏱️  Time to first chunk : {first_chunk_time * 1000:.0f} ms")
-print(f"  ⏱️  Total generation    : {gen_elapsed:.2f} s")
-print(f"  🔢  Chunks received     : {chunk_count}")
-print(f"  🎵  Audio duration      : {audio_duration:.2f} s")
-print(f"  ⚡  Real-time factor    : {audio_duration / gen_elapsed:.2f}x")
+print(f"  Generation time     : {gen_elapsed:.2f} s")
+print(f"  Playback time       : {play_elapsed:.2f} s")
+print(f"  Chunks played       : {chunk_count}")
+print(f"  Audio duration      : {audio_duration:.2f} s")
+print(f"  Real-time factor    : {audio_duration / gen_elapsed:.2f}x")
 print("=" * 56)
 
 # =============================================================================
 # Optional: Save the Full Audio to a WAV File
 # =============================================================================
-# Even in streaming mode it's handy to keep a copy on disk.
 
 output_filename = "stream_output.wav"
 
 if SAVE_AVAILABLE and len(full_audio) > 0:
     sf.write(output_filename, full_audio, SAMPLE_RATE)
-    import os
     file_size = os.path.getsize(output_filename)
-    print(f"\n💾 Audio saved to {output_filename} ({file_size / 1024:.1f} KB)")
+    print(f"\nAudio saved to {output_filename} ({file_size / 1024:.1f} KB)")
 else:
     if not SAVE_AVAILABLE:
-        print("\n⚠️  soundfile not installed — skipping WAV export.")
-    print("   Install with: pip install soundfile")
+        print("\nsoundfile not installed -- skipping WAV export.")
+        print("   Install with: pip install soundfile")
 
-print("\n🎉 Done! Real-time streaming TTS complete.")
+print("\nDone! Real-time streaming TTS complete.")
