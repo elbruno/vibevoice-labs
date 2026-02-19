@@ -272,70 +272,58 @@ From the Aspire dashboard:
 
 ## Scenario 3: Simple C# Console App
 
-A .NET 10 console app that mirrors Scenario 1 but calls the FastAPI backend via HTTP.
+A .NET 10 console app that runs VibeVoice TTS directly by invoking the Python model from C# via `System.Diagnostics.Process`.
 
 > **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
 
-### Step 1: Start the Backend
+### Step 1: Install Python Dependencies
 
-The C# app calls the Python backend, so start it first. From the repository root:
-
-**Windows:**
-```powershell
-.\.venv\Scripts\Activate.ps1
-cd src/scenario-02-fullstack/backend
-uvicorn main:app --port 5100
-```
-
-**Linux/macOS:**
 ```bash
-source .venv/bin/activate
-cd src/scenario-02-fullstack/backend
-uvicorn main:app --port 5100
+cd src/scenario-03-csharp-simple
+pip install -r requirements.txt
 ```
 
 ### Step 2: Run the Console App
 
-In a new terminal:
-
 ```bash
-cd src/scenario-03-csharp-simple
 dotnet run
 ```
 
 ### Expected Output
 
 ```
-Step 1: Checking backend health...
-  Status: Healthy ✓
+🎙️  VibeVoice TTS — C# Console Demo (Direct Model)
+🐍 Python: python
+📂 Script: .../tts_helper.py
 
-Step 2: Fetching available voices...
-  Found 6 voices ✓
+🔍 Step 2: Verifying Python environment...
+   ✅ VibeVoice OK
 
-Step 3: Setting up TTS request...
-  Text: "Hello from C#..."
-  Voice: en-carter
+🗣️  Step 3: Selected voice: Carter
 
-Step 4: Generating speech...
-  Success! ✓
+📝 Step 4: Text to synthesize:
+   "Hello! Welcome to VibeVoice Labs..."
 
-Step 5: Saving audio...
-  Saved to: output.wav (512 KB)
+🎵 Step 5: Generating audio...
+   🐍 Loading VibeVoice-Realtime-0.5B model...
+   🐍 Model loaded on cpu!
+   🐍 Using voice: Carter (en-Carter_man.pt)
+   🐍 Generating audio for: 'Hello! Welcome to VibeVoice Labs...'
+   🐍 Saved: output.wav (475.0 KB, 10.13s)
 
-Done! Play output.wav to hear the result.
+✅ Audio generated successfully!
+   📁 File:    output.wav
+   📏 Size:    475.0 KB
+   🗣️  Voice:   Carter
 ```
 
 ### Configuration
 
-Set the backend URL via environment variable:
+Set the Python executable path if Python is not on PATH:
 
 ```bash
 # Windows PowerShell
-$env:VIBEVOICE_BACKEND_URL = "http://localhost:8000"
-dotnet run
-
-# Linux/macOS
-export VIBEVOICE_BACKEND_URL="http://localhost:8000"
+$env:PYTHON_PATH = "C:\path\to\.venv\Scripts\python.exe"
 dotnet run
 ```
 
@@ -691,7 +679,7 @@ allow_origins=["https://your-domain.com"]
 |----------|----------|-------|-----------|---------|
 | 1 | Python | Learning TTS basics | Beginner | `python main.py` |
 | 2 | C# + Python | Full-stack web app | Intermediate | `cd VoiceLabs.AppHost && dotnet run` |
-| 3 | C# | HTTP client example | Beginner | `dotnet run` |
+| 3 | C# | Direct model (via Python Process) | Beginner | `dotnet run` |
 | 4 | C# | AI agent + TTS | Intermediate | `dotnet run` |
 | 5 | Python | Batch processing | Intermediate | `python batch_tts.py` |
 | 6 | Python | Real-time streaming | Intermediate | `python stream_tts.py` |
@@ -717,13 +705,8 @@ cd VoiceLabs.AppHost && dotnet run
 
 ### Scenario 3 Commands
 ```bash
-# Terminal 1: Start backend (from Scenario 2)
-cd src/scenario-02-fullstack/backend
-python -m venv venv && .\venv\Scripts\activate
-pip install -r requirements.txt && uvicorn main:app --port 5100
-
-# Terminal 2: Run console app
 cd src/scenario-03-csharp-simple
+pip install -r requirements.txt
 dotnet run
 ```
 

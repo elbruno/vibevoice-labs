@@ -38,8 +38,8 @@ LANGUAGE_CONFIG = {
     },
     "sp": {
         "name": "Spanish",
-        "voices": ["Spk0_woman", "Spk1_man"],
-        "sample_text": "¡Hola! Esta es una demostración de VibeVoice texto a voz en español. El modelo puede generar habla con sonido natural en tiempo real."
+        "voices": ["Spk1_man"],
+        "sample_text": "¡Hola gorda! Todo viento? Como te baila? Aqui estamos de partuza codeando con Copilot."
     },
     "de": {
         "name": "German",

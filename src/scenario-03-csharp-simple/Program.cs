@@ -1,84 +1,104 @@
 // =============================================================================
-// VibeVoice TTS - Simple C# Console Demo
+// VibeVoice TTS - Simple C# Console Demo (Direct Model Invocation)
 // =============================================================================
-// This script demonstrates how to call the VibeVoice FastAPI backend from C#
-// using HttpClient. It mirrors Scenario 1 (Python simple script) step by step.
+// This script demonstrates how to run VibeVoice TTS directly from C# by
+// invoking the Python VibeVoice model via System.Diagnostics.Process.
+// No HTTP backend required — the model runs locally.
 //
-// Backend API (Python FastAPI):
-//   GET  /api/health  → health check
-//   GET  /api/voices  → list available voices
-//   POST /api/tts     → { "text": "...", "voice_id": "..." } → WAV bytes
+// How it works:
+//   C# orchestrates the flow → calls tts_helper.py → VibeVoice generates WAV
+//
+// Prerequisites:
+//   - Python 3.11+ with VibeVoice installed (see requirements.txt)
+//   - pip install -r requirements.txt
 
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Diagnostics;
 
 // =============================================================================
-// STEP 1: Setup HttpClient and Base URL
+// STEP 1: Configuration
 // =============================================================================
-// The backend URL defaults to http://localhost:5100 but can be overridden
-// with the VIBEVOICE_BACKEND_URL environment variable.
+// Set the Python executable and paths. Override PYTHON_PATH env var if your
+// Python is not on PATH (e.g., inside a virtual environment).
 
-var baseUrl = Environment.GetEnvironmentVariable("VIBEVOICE_BACKEND_URL")
-    ?? "http://localhost:5100";
+var pythonExe = Environment.GetEnvironmentVariable("PYTHON_PATH") ?? "python";
+var scriptDir = AppContext.BaseDirectory;
 
-using var httpClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
+// Look for tts_helper.py next to the .csproj (source dir), not bin output
+var projectDir = Path.GetFullPath(Path.Combine(scriptDir, "..", "..", ".."));
+var helperScript = Path.Combine(projectDir, "tts_helper.py");
 
-Console.WriteLine("🎙️  VibeVoice TTS — C# Console Demo");
-Console.WriteLine($"📡 Backend URL: {baseUrl}");
+if (!File.Exists(helperScript))
+{
+    // Fallback: check current working directory
+    helperScript = Path.Combine(Directory.GetCurrentDirectory(), "tts_helper.py");
+}
+
+Console.WriteLine("🎙️  VibeVoice TTS — C# Console Demo (Direct Model)");
+Console.WriteLine($"🐍 Python: {pythonExe}");
+Console.WriteLine($"📂 Script: {helperScript}");
 Console.WriteLine();
 
-// =============================================================================
-// STEP 2: Check Backend Health
-// =============================================================================
-// Make sure the Python FastAPI backend is running before proceeding.
+if (!File.Exists(helperScript))
+{
+    Console.WriteLine("❌ tts_helper.py not found! Make sure it exists in the project directory.");
+    return;
+}
 
-Console.WriteLine("🔍 Step 2: Checking backend health...");
+// =============================================================================
+// STEP 2: Verify Python & VibeVoice Installation
+// =============================================================================
+// Quick check that Python is available and VibeVoice is installed.
+
+Console.WriteLine("🔍 Step 2: Verifying Python environment...");
 try
 {
-    var healthResponse = await httpClient.GetAsync("/api/health");
-    healthResponse.EnsureSuccessStatusCode();
-    var healthJson = await healthResponse.Content.ReadAsStringAsync();
-    var health = JsonSerializer.Deserialize<HealthResponse>(healthJson);
-    Console.WriteLine($"   ✅ Backend is {health?.Status ?? "unknown"} (model loaded: {health?.ModelLoaded})");
+    var checkProcess = new Process
+    {
+        StartInfo = new ProcessStartInfo
+        {
+            FileName = pythonExe,
+            Arguments = "-c \"import vibevoice; print('VibeVoice OK')\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        }
+    };
+    checkProcess.Start();
+    var checkOutput = await checkProcess.StandardOutput.ReadToEndAsync();
+    await checkProcess.WaitForExitAsync();
+
+    if (checkProcess.ExitCode != 0)
+    {
+        var checkError = await checkProcess.StandardError.ReadToEndAsync();
+        Console.WriteLine($"   ❌ VibeVoice not installed: {checkError.Trim()}");
+        Console.WriteLine("   💡 Run: pip install -r requirements.txt");
+        return;
+    }
+    Console.WriteLine($"   ✅ {checkOutput.Trim()}");
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"   ❌ Backend not reachable: {ex.Message}");
-    Console.WriteLine("   💡 Start the backend first: cd src/scenario-02-fullstack/backend && uvicorn main:app --port 5100");
+    Console.WriteLine($"   ❌ Python not found: {ex.Message}");
+    Console.WriteLine($"   💡 Set PYTHON_PATH env var to your Python executable");
     return;
 }
 Console.WriteLine();
 
 // =============================================================================
-// STEP 3: List Available Voices
+// STEP 3: Select a Voice
 // =============================================================================
-// Fetch the voice catalog from the backend and display available options.
+// Available English voices: Carter, Davis, Emma, Frank, Grace, Mike
+// These map to pre-computed .pt voice preset files.
 
-Console.WriteLine("🗣️  Step 3: Listing available voices...");
-try
-{
-    var voicesResponse = await httpClient.GetAsync("/api/voices");
-    voicesResponse.EnsureSuccessStatusCode();
-    var voicesJson = await voicesResponse.Content.ReadAsStringAsync();
-    var voicesResult = JsonSerializer.Deserialize<VoicesResponse>(voicesJson);
+var voice = "Carter";    // Male, clear American English (default)
+// voice = "Davis";      // Male voice
+// voice = "Emma";       // Female voice
+// voice = "Frank";      // Male voice
+// voice = "Grace";      // Female voice
+// voice = "Mike";       // Male voice
 
-    if (voicesResult?.Voices is { Count: > 0 })
-    {
-        foreach (var voice in voicesResult.Voices)
-        {
-            Console.WriteLine($"   🎤 {voice.Id} — {voice.Name} ({voice.Language})");
-        }
-    }
-    else
-    {
-        Console.WriteLine("   ⚠️  No voices returned from backend.");
-    }
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"   ⚠️  Could not fetch voices: {ex.Message}");
-}
+Console.WriteLine($"🗣️  Step 3: Selected voice: {voice}");
 Console.WriteLine();
 
 // =============================================================================
@@ -87,149 +107,86 @@ Console.WriteLine();
 // VibeVoice supports up to ~10 minutes of audio generation.
 // For best results, use natural text with proper punctuation.
 
-var text = "Hello! Welcome to VibeVoice Labs. This is a demonstration of the VibeVoice text-to-speech system.";
-var voiceId = "en-US-Aria";
+var text = "Hello! Welcome to VibeVoice Labs. This is a demonstration of the VibeVoice text-to-speech system running directly from C sharp.";
 
 Console.WriteLine("📝 Step 4: Text to synthesize:");
 Console.WriteLine($"   \"{text}\"");
-Console.WriteLine($"   Voice: {voiceId}");
 Console.WriteLine();
 
 // =============================================================================
-// AVAILABLE VOICES
+// STEP 5: Generate Audio (via Python VibeVoice model)
 // =============================================================================
-// Uncomment any of the following lines to try different voices:
+// Invoke tts_helper.py which loads the VibeVoice model, generates audio,
+// and saves the WAV file. C# captures stdout for progress updates.
 
-// --- English Voices ---
-// voiceId = "en-US-Aria";       // American English (default)
-// voiceId = "en-GB-Sonia";      // British English
-// voiceId = "en-AU-Natasha";    // Australian English
+var outputFilename = "output.wav";
+var outputPath = Path.Combine(Directory.GetCurrentDirectory(), outputFilename);
 
-// --- Multilingual Voices ---
-// text = "Guten Tag! Willkommen bei VibeVoice.";       voiceId = "de-DE-Katja";    // German
-// text = "Bonjour! Bienvenue à VibeVoice.";             voiceId = "fr-FR-Denise";   // French
-// text = "Ciao! Benvenuto a VibeVoice.";                voiceId = "it-IT-Elsa";     // Italian
-// text = "¡Hola! Bienvenido a VibeVoice.";              voiceId = "es-ES-Elvira";   // Spanish
-// text = "Olá! Bem-vindo ao VibeVoice.";                voiceId = "pt-BR-Francisca";// Portuguese
-// text = "Hallo! Welkom bij VibeVoice.";                voiceId = "nl-NL-Colette";  // Dutch
-// text = "こんにちは！VibeVoice へようこそ。";            voiceId = "ja-JP-Nanami";   // Japanese
-// text = "안녕하세요! VibeVoice에 오신 것을 환영합니다."; voiceId = "ko-KR-SunHi";   // Korean
+Console.WriteLine("🎵 Step 5: Generating audio (this may take a moment on first run)...");
+Console.WriteLine("   ⏳ First run downloads the model (~1-2 GB) and voice presets.");
+Console.WriteLine();
 
-// =============================================================================
-// STEP 5: Generate Audio (POST /api/tts)
-// =============================================================================
-// Send the text and voice selection to the backend. The response is WAV bytes.
-
-Console.WriteLine("🎵 Step 5: Generating audio...");
-
-var requestBody = JsonSerializer.Serialize(new TtsRequest { Text = text, VoiceId = voiceId });
-var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-
-HttpResponseMessage ttsResponse;
-try
+var process = new Process
 {
-    ttsResponse = await httpClient.PostAsync("/api/tts", content);
-    ttsResponse.EnsureSuccessStatusCode();
-}
-catch (Exception ex)
+    StartInfo = new ProcessStartInfo
+    {
+        FileName = pythonExe,
+        Arguments = $"\"{helperScript}\" --text \"{text.Replace("\"", "\\\"")}\" --voice \"{voice}\" --output \"{outputPath}\"",
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true,
+    }
+};
+
+process.Start();
+
+// Stream stdout in real-time so the user sees progress
+var stdoutTask = Task.Run(async () =>
 {
-    Console.WriteLine($"   ❌ Audio generation failed: {ex.Message}");
+    while (await process.StandardOutput.ReadLineAsync() is { } line)
+    {
+        Console.WriteLine($"   🐍 {line}");
+    }
+});
+
+var stderrTask = Task.Run(async () =>
+{
+    return await process.StandardError.ReadToEndAsync();
+});
+
+await process.WaitForExitAsync();
+await stdoutTask;
+var stderr = await stderrTask;
+
+Console.WriteLine();
+
+if (process.ExitCode != 0)
+{
+    Console.WriteLine("❌ Audio generation failed!");
+    if (!string.IsNullOrWhiteSpace(stderr))
+    {
+        Console.WriteLine($"   Error: {stderr.Trim()[..Math.Min(stderr.Trim().Length, 500)]}");
+    }
     return;
 }
 
-var audioBytes = await ttsResponse.Content.ReadAsByteArrayAsync();
-Console.WriteLine($"   ✅ Received {audioBytes.Length} bytes of audio data");
-Console.WriteLine();
-
 // =============================================================================
-// STEP 6: Save WAV File
+// STEP 6: Verify Output
 // =============================================================================
-// Write the raw WAV bytes to a local file.
+// Check that the WAV file was created and report file info.
 
-var outputFilename = "output.wav";
+if (!File.Exists(outputPath))
+{
+    Console.WriteLine($"❌ Output file not found: {outputPath}");
+    return;
+}
 
-Console.WriteLine($"💾 Step 6: Saving audio to {outputFilename}...");
-await File.WriteAllBytesAsync(outputFilename, audioBytes);
-
-// =============================================================================
-// STEP 7: Confirmation
-// =============================================================================
-// Report success and provide file info.
-
-var fileInfo = new FileInfo(outputFilename);
-Console.WriteLine();
+var fileInfo = new FileInfo(outputPath);
 Console.WriteLine("✅ Audio generated successfully!");
-Console.WriteLine($"   📁 File: {outputFilename}");
-Console.WriteLine($"   📏 Size: {fileInfo.Length / 1024.0:F1} KB");
-Console.WriteLine($"   🎤 Voice: {voiceId}");
+Console.WriteLine($"   📁 File:    {outputFilename}");
+Console.WriteLine($"   📏 Size:    {fileInfo.Length / 1024.0:F1} KB");
+Console.WriteLine($"   🗣️  Voice:   {voice}");
+Console.WriteLine($"   📂 Path:    {outputPath}");
 Console.WriteLine();
 Console.WriteLine("🎧 Open the file in your favorite audio player to listen!");
-
-// =============================================================================
-// ADVANCED: Streaming Generation (Optional)
-// =============================================================================
-// For longer texts, you can use streaming to start playback before generation
-// is complete. This calls the backend with Accept: chunked and reads
-// the response stream incrementally.
-
-// async Task GenerateWithStreamingAsync()
-// {
-//     var longText = """
-//         VibeVoice is a state-of-the-art text-to-speech model developed by Microsoft.
-//         It provides natural-sounding speech synthesis with low latency, making it
-//         ideal for real-time applications like voice assistants and accessibility tools.
-//         """;
-//
-//     Console.WriteLine("🔄 Streaming generation...");
-//
-//     var request = new HttpRequestMessage(HttpMethod.Post, "/api/tts");
-//     request.Content = new StringContent(
-//         JsonSerializer.Serialize(new TtsRequest { Text = longText, VoiceId = "en-US-Aria" }),
-//         Encoding.UTF8, "application/json");
-//
-//     var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-//     response.EnsureSuccessStatusCode();
-//
-//     await using var stream = await response.Content.ReadAsStreamAsync();
-//     var buffer = new byte[4096];
-//     int totalBytes = 0;
-//     int bytesRead;
-//
-//     while ((bytesRead = await stream.ReadAsync(buffer)) > 0)
-//     {
-//         totalBytes += bytesRead;
-//         Console.WriteLine($"   📦 Received chunk: {bytesRead} bytes (total: {totalBytes})");
-//         // Process each chunk — write to file, play audio, etc.
-//     }
-//
-//     Console.WriteLine($"   ✅ Streaming complete: {totalBytes} total bytes");
-// }
-//
-// Uncomment to try streaming:
-// await GenerateWithStreamingAsync();
-
-// =============================================================================
-// JSON Models
-// =============================================================================
-
-record HealthResponse(
-    [property: JsonPropertyName("status")] string? Status,
-    [property: JsonPropertyName("model_loaded")] bool? ModelLoaded);
-
-record VoicesResponse(
-    [property: JsonPropertyName("voices")] List<VoiceInfo>? Voices);
-
-record VoiceInfo(
-    [property: JsonPropertyName("id")] string? Id,
-    [property: JsonPropertyName("name")] string? Name,
-    [property: JsonPropertyName("language")] string? Language,
-    [property: JsonPropertyName("style")] string? Style);
-
-record TtsRequest
-{
-    [JsonPropertyName("text")]
-    public string Text { get; init; } = "";
-
-    [JsonPropertyName("voice_id")]
-    public string VoiceId { get; init; } = "en-US-Aria";
-}

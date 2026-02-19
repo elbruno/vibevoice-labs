@@ -8,7 +8,7 @@ This document describes the system architecture of VibeVoice Labs across all 7 s
 |----------|--------------|-----------|----------|
 | 1 | **Standalone Python** | Python script + VibeVoice TTS | Learning, local batch generation |
 | 2 | **Aspire Orchestration** | Blazor frontend + FastAPI backend | Full-stack web application |
-| 3 | **HTTP Client** | C# console + remote FastAPI | Calling a TTS API from .NET |
+| 3 | **Python Process Interop** | C# console + Python VibeVoice script | Running VibeVoice directly from .NET |
 | 4 | **MEAI Agent** | C# agent + MEAI IChatClient + TTS API | AI-driven text generation + speech |
 | 5 | **Batch Processing** | Python CLI + direct TTS model | Bulk text-to-audio conversion |
 | 6 | **Streaming Real-Time** | Python streaming processor | Low-latency audio playback |

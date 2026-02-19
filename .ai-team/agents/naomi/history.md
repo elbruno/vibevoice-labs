@@ -56,6 +56,13 @@
 - **Scenario 5:** ✅ Batch processing tool complete with YAML front-matter support; fixed README voice codes to match VOICE_PRESETS keys; updated sample files (hello-french.txt, hello-spanish.txt) to use correct voice codes (fr-woman, es-woman)
 - **Scenario 6:** ✅ Streaming demo complete with chunked playback; all syntax valid
 - All Python files compile successfully via `python -m py_compile`
+
+### 2026-02-19: Aspire Frontend-to-Backend HTTP Fix
+- **Problem:** Blazor frontend couldn't reach Python FastAPI backend via Aspire service discovery
+- **Root cause 1:** `VoiceLabs.Web/Program.cs` used `https://backend` but uvicorn only serves HTTP — Aspire resolves scheme to named endpoint, so HTTPS lookup fails
+- **Root cause 2:** `AppHost.cs` didn't declare `.WithHttpEndpoint()` on the uvicorn app, so Aspire had no endpoint metadata for service discovery
+- **Fix:** Changed `https://backend` → `http://backend` in Program.cs; added `.WithHttpEndpoint(targetPort: 8000, env: "PORT")` in AppHost.cs
+- **Lesson:** When using `AddUvicornApp`, always declare the endpoint explicitly with `WithHttpEndpoint` and ensure the frontend uses `http://` (not `https://`) since Python uvicorn typically serves plain HTTP behind Aspire's reverse proxy
 - All import resolution verified for scenario-02 backend (`from app.api.routes import router` etc.)
 - **Critical fix:** Voice ID consistency across all scenarios — backend uses kebab-case (en-carter, en-emma), batch tool uses lowercase (carter, emma, fr-woman, es-woman)
 - requirements.txt files verified complete for all scenarios

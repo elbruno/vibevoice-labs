@@ -30,7 +30,7 @@ VibeVoice Labs demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B
 
 - **Scenario 1:** Minimal Python script for learning TTS basics
 - **Scenario 2:** Full-stack web application with Blazor UI, FastAPI backend, and .NET Aspire
-- **Scenario 3:** Simple C# console app calling the Python backend via HTTP
+- **Scenario 3:** C# console app running VibeVoice directly via Python Process interop
 - **Scenario 4:** AI agent using Microsoft.Extensions.AI (MEAI) to generate and speak responses
 - **Scenario 5:** Batch TTS processing CLI for converting folders of text to WAV files
 - **Scenario 6:** Real-time streaming demonstration with low-latency audio playback
@@ -56,7 +56,7 @@ VibeVoice Labs demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B
 |---|------|----------|-------|-----------|-----------|
 | 1 | Simple Python | Python | Learning basics | Beginner | Want to understand VibeVoice TTS fundamentals |
 | 2 | Full-Stack Web | C# + Python | Modern web app | Intermediate | Need a complete web application with UI |
-| 3 | C# Console | C# | HTTP client | Beginner | Learning to call a remote API from C# |
+| 3 | C# Console | C# | Direct model invocation | Beginner | Running VibeVoice directly from C# |
 | 4 | MEAI Agent | C# | AI + TTS | Intermediate | Build AI agents that speak |
 | 5 | Batch Processing | Python | Bulk conversion | Intermediate | Convert many text files to audio |
 | 6 | Real-Time Stream | Python | Low-latency play | Intermediate | Understand streaming audio generation |
@@ -188,40 +188,29 @@ dotnet run
 
 ## Scenario 3: Simple C# Console
 
-A console app that mirrors Scenario 1 but calls the Python backend via HTTP.
+A console app that runs VibeVoice TTS directly from C# by invoking the Python model via `System.Diagnostics.Process`.
 
 ### Quick Start
 
-**Terminal 1: Start the Python Backend**
-
-```bash
-cd src/scenario-02-fullstack/backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --port 5100
-```
-
-**Terminal 2: Run the Console App**
-
 ```bash
 cd src/scenario-03-csharp-simple
+pip install -r requirements.txt
 dotnet run
 ```
 
 ### What Happens
 
-1. **Health Check** — Verifies the backend is running
-2. **Voice Listing** — Fetches available voices from the API
-3. **Text-to-Speech** — Sends text and generates audio
+1. **Environment Check** — Verifies Python and VibeVoice are installed
+2. **Voice Selection** — Uses a pre-configured voice (Carter by default)
+3. **Text-to-Speech** — Invokes `tts_helper.py` which loads the model and generates audio
 4. **Save Output** — Stores result as `output.wav`
 
 ### Configuration
 
-Set a custom backend URL:
+Set a custom Python path:
 
 ```bash
-$env:VIBEVOICE_BACKEND_URL = "http://localhost:8000"
+$env:PYTHON_PATH = "C:\path\to\python.exe"
 dotnet run
 ```
 
