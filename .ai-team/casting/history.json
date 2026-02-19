@@ -1,0 +1,21 @@
+{
+  "universe_usage_history": [
+    {
+      "assignment_id": "vibevoice-labs-001",
+      "universe": "The Expanse",
+      "timestamp": "2026-02-19T01:59:13.995Z"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "vibevoice-labs-001": {
+      "universe": "The Expanse",
+      "agent_map": {
+        "holden": "Holden",
+        "naomi": "Naomi",
+        "alex": "Alex",
+        "amos": "Amos"
+      },
+      "created_at": "2026-02-19T01:59:13.995Z"
+    }
+  }
+}
