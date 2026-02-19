@@ -26,20 +26,15 @@ Console.WriteLine();
 // CSnakes embeds a CPython interpreter inside the .NET process.
 // It auto-creates a virtual environment and installs requirements.txt.
 
-var pythonDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "python"));
-var venvDir = Path.Combine(pythonDir, ".venv");
+var pythonHome = Path.Join(Environment.CurrentDirectory, ".");
 
 Console.WriteLine("🐍 Step 1: Setting up embedded Python environment...");
-Console.WriteLine($"   📂 Python modules: {pythonDir}");
-Console.WriteLine($"   📦 Virtual env:    {venvDir}");
 Console.WriteLine();
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .WithPython()
-    .WithHome(pythonDir)
-    .WithVirtualEnvironment(venvDir)
-    .WithPipInstaller()
+    .WithHome(pythonHome)
     .FromRedistributable();
 
 using var app = builder.Build();
@@ -76,8 +71,8 @@ Console.WriteLine();
 
 try
 {
-    var tts = env.VibevoiceTts();
-    var result = tts.SynthesizeSpeech(text, voice, outputPath);
+    var module = env.VibevoiceTts();
+    var result = module.SynthesizeSpeech(text, voice, outputPath);
 
     Console.WriteLine();
     Console.WriteLine($"✅ Audio generated successfully!");

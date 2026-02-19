@@ -6,15 +6,17 @@
     <RootNamespace>VoiceLabs.Console</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CSnakes.Runtime" Version="1.*" />
+    <PackageReference Include="CSnakes.Runtime" Version="1.*-*" />
   </ItemGroup>
 
   <ItemGroup>
-    <AdditionalFiles Include="python\vibevoice_tts.py" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="python\requirements.txt" CopyToOutputDirectory="PreserveNewest" />
+    <AdditionalFiles Include="vibevoice_tts.py">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </AdditionalFiles>
   </ItemGroup>
 
 </Project>

@@ -51,9 +51,8 @@ A .NET 10 console app that runs VibeVoice TTS using **CSnakes** to embed the Pyt
 ```
 src/scenario-03-csharp-simple/
 ├── Program.cs              # C# host using CSnakes
-├── python/
-│   ├── vibevoice_tts.py    # Python TTS module (embedded via CSnakes)
-│   └── requirements.txt    # Auto-installed by CSnakes
+├── vibevoice_tts.py        # Python TTS module (embedded via CSnakes)
+├── requirements.txt        # Python dependencies
 ├── .csproj                 # Project file with CSnakes NuGet
 └── README.md               # Quick start guide
 ```

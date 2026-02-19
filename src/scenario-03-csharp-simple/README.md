@@ -55,6 +55,6 @@ var voice = "Carter";    // Male, clear American English (default)
 | File | Purpose |
 |---|---|
 | `Program.cs` | C# host — configures CSnakes, calls Python TTS |
-| `python/vibevoice_tts.py` | Python TTS module (embedded via CSnakes) |
-| `python/requirements.txt` | Python dependencies (auto-installed by CSnakes) |
+| `vibevoice_tts.py` | Python TTS module (embedded via CSnakes) |
+| `requirements.txt` | Python dependencies (install manually or via CSnakes venv) |
 | `VoiceLabs.Console.csproj` | .NET 10 project file with CSnakes NuGet |
