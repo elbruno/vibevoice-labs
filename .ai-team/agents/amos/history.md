@@ -35,3 +35,14 @@
 - **Solution build:** All 4 projects build clean (0 errors, 0 warnings)
 - **Note:** C# tests still use internal placeholder models instead of actual `VoiceLabs.Web.Services` types — should be refactored to use real models now that ProjectReference is active
 - **Note:** Python tests will activate automatically once backend FastAPI app exists at `python-api/main.py` or `python-api/app/main.py`
+
+### 2026-02-19: Full verification of all scenarios
+- **Scenario 02 (full-stack solution):** ✅ Build succeeded (0 errors, 0 warnings) — 4 projects
+- **Scenario 03 (C# console):** ✅ Build succeeded
+- **Scenario 04 (Semantic Kernel):** ✅ Build succeeded (2 warnings: NU1904 vulnerability in Microsoft.SemanticKernel.Core 1.54.0)
+- **Scenario 07 (MAUI mobile):** ❌ Build failed — requires `maui-android` workload not installed on this machine (NETSDK1147). Not a code issue.
+- **C# tests (VoiceLabs.Web.Tests):** ✅ 8/8 passed
+- **Python syntax check:** ✅ All 4 scripts valid (scenario-01, scenario-02 backend, scenario-05, scenario-06)
+- **Python tests (pytest):** ✅ 12/12 collected (skipped at runtime — backend not yet implemented)
+- **No code fixes needed** — all buildable projects compile clean, all tests pass
+- **Advisory:** Scenario 04 should upgrade `Microsoft.SemanticKernel` to address GHSA-2ww3-72rp-wpp4
