@@ -181,20 +181,44 @@ From the repository root:
 **Windows:** `.\.venv\Scripts\Activate.ps1`  
 **Linux/macOS:** `source .venv/bin/activate`
 
-### Step 2: Install Aspire Workload (if not done)
+### Step 2: Create Virtual Environment Link (First Time Only)
+
+Aspire expects a `.venv` folder in the backend directory. Create a link to the shared root venv:
+
+**Windows (Command Prompt as Administrator OR regular user):**
+```cmd
+cd src\scenario-02-fullstack\backend
+mklink /J .venv ..\..\..\.venv
+```
+
+**Windows (PowerShell - requires junction):**
+```powershell
+cd src/scenario-02-fullstack/backend
+cmd /c mklink /J .venv ..\..\..\.venv
+```
+
+**Linux/macOS:**
+```bash
+cd src/scenario-02-fullstack/backend
+ln -s ../../../.venv .venv
+```
+
+> **Note:** This creates a symbolic link (junction on Windows) so both paths point to the same venv. You only need to do this once.
+
+### Step 3: Install Aspire Workload (if not done)
 
 ```bash
 dotnet workload install aspire
 ```
 
-### Step 3: Restore .NET Dependencies
+### Step 4: Restore .NET Dependencies
 
 ```bash
 cd src/scenario-02-fullstack
 dotnet restore VoiceLabs.slnx
 ```
 
-### Step 4: Run with Aspire
+### Step 5: Run with Aspire
 
 ```bash
 cd VoiceLabs.AppHost

@@ -35,7 +35,24 @@ uvicorn main:app --host 0.0.0.0 --port 5100
 ```
 
 ### With Aspire
-The AppHost project orchestrates this backend automatically. See the parent solution.
+
+The AppHost project orchestrates this backend automatically. 
+
+**Important:** Before running with Aspire, ensure you've created the virtual environment link:
+
+**Windows:**
+```cmd
+cd src\scenario-02-fullstack\backend
+mklink /J .venv ..\..\..\.venv
+```
+
+**Linux/macOS:**
+```bash
+cd src/scenario-02-fullstack/backend
+ln -s ../../../.venv .venv
+```
+
+This creates a link to the shared root venv so Aspire can find it. See the parent solution for Aspire setup.
 
 ## API Endpoints
 

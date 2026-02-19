@@ -61,16 +61,15 @@ The orchestration layer that manages service lifecycle and discovery.
 
 **Key Configuration:**
 ```csharp
-// Uses the shared virtual environment at the repository root (.venv)
-var backend = builder.AddUvicornApp("backend", "../backend", "main:app")
-    .WithVirtualEnvironment("../../.venv")
-    .WithHttpEndpoint(port: 5100, env: "PORT")
-    .WithExternalHttpEndpoints();
+// Uses the shared virtual environment at the repository root (.venv via junction link)
+var backend = builder.AddUvicornApp("backend", "../backend", "main:app");
 
 builder.AddProject<Projects.VoiceLabs_Web>("frontend")
     .WithReference(backend)
     .WaitFor(backend);
 ```
+
+> **Note:** Aspire finds the `.venv` in the backend directory automatically. To share the root venv, a junction link must be created from `backend/.venv` to the root `.venv` (see [Getting Started](GETTING_STARTED.md#step-2-create-virtual-environment-link-first-time-only)).
 
 ### 2. Blazor Frontend (`VoiceLabs.Web`)
 
