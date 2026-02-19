@@ -10,6 +10,22 @@
 
 ## Learnings
 
+### 2026-02-19: Complete documentation overhaul for all 7 scenarios
+- Updated root README.md to ensure all 7 scenarios are clearly listed with descriptions and links
+- Expanded docs/GETTING_STARTED.md to include detailed setup instructions for all 7 scenarios (1-7)
+- Added "All Scenarios at a Glance" reference table for quick navigation
+- Updated docs/USER_MANUAL.md table of contents to include all 7 scenarios
+- Added comprehensive scenario overview table showing language, focus, difficulty, and use cases
+- Inserted detailed usage sections for scenarios 3-7 with quick start commands and configuration
+- Updated docs/ARCHITECTURE.md with "Scenario Architectures at a Glance" table
+- All 7 scenario README.md files verified to exist and contain accurate descriptions
+- Documentation now provides complete guide for developers choosing which scenario to explore
+- Cross-referenced all docs: README → GETTING_STARTED → USER_MANUAL → ARCHITECTURE → per-scenario READMEs
+
+Voice details confirmed: Carter, Davis, Emma, Frank, Grace, Mike (English presets)
+Model: microsoft/VibeVoice-Realtime-0.5B
+Install: `pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"`
+
 ### 2026-02-19: Project structure and API contract finalized
 - Designed directory layout with clear separation between Scenario 1 and Scenario 2
 - Defined complete API contract: /api/health, /api/voices, /api/tts endpoints

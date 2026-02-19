@@ -51,8 +51,8 @@ List available TTS voices.
 ```json
 {
   "voices": [
-    {"id": "en-US-Aria", "name": "Aria", "language": "en-US", "style": "general"},
-    {"id": "de-DE-Katja", "name": "Katja", "language": "de-DE", "style": "general"}
+    {"id": "en-carter", "name": "Carter", "language": "en", "style": "male"},
+    {"id": "en-emma", "name": "Emma", "language": "en", "style": "female"}
   ]
 }
 ```
@@ -64,7 +64,7 @@ Generate speech from text.
 ```json
 {
   "text": "Hello, world!",
-  "voice_id": "en-US-Aria",
+  "voice_id": "en-carter",
   "output_format": "wav"
 }
 ```

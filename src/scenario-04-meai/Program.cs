@@ -1,5 +1,5 @@
 // =============================================================================
-// VibeVoice Labs — Scenario 4: Semantic Kernel + VibeVoice
+// VibeVoice Labs — Scenario 4: Microsoft.Extensions.AI + VibeVoice
 // =============================================================================
 // An AI Agent that Speaks!
 //
@@ -11,13 +11,14 @@
 //   3. dotnet run
 // =============================================================================
 
-using Microsoft.SemanticKernel;
-using VoiceLabs.SK.Plugins;
+using Microsoft.Extensions.AI;
+using OpenAI;
+using VoiceLabs.MEAI.Plugins;
 
 // =============================================================================
-// STEP 1: Configure Semantic Kernel with an LLM
+// STEP 1: Configure Microsoft.Extensions.AI Chat Client with OpenAI
 // =============================================================================
-// We use OpenAI here, but Semantic Kernel supports many providers.
+// We use the IChatClient abstraction from Microsoft.Extensions.AI.
 // The API key is read from the OPENAI_API_KEY environment variable.
 
 Console.WriteLine("🧠 VibeVoice Labs — Scenario 4: An AI Agent that Speaks!");
@@ -27,25 +28,20 @@ var openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
     ?? throw new InvalidOperationException(
         "❌ Please set the OPENAI_API_KEY environment variable.");
 
-var builder = Kernel.CreateBuilder();
-
 // --- Default: OpenAI gpt-4o-mini (fast & affordable) ---
-builder.AddOpenAIChatCompletion("gpt-4o-mini", openAiKey);
+var chatClient = new OpenAIClient(openAiKey)
+    .GetChatClient("gpt-4o-mini")
+    .AsIChatClient();
 
 // --- Alternative: OpenAI gpt-4o (more capable) ---
-// builder.AddOpenAIChatCompletion("gpt-4o", openAiKey);
+// var chatClient = new OpenAIClient(openAiKey)
+//     .GetChatClient("gpt-4o")
+//     .AsIChatClient();
 
-// --- Alternative: Azure OpenAI ---
-// var azureEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")!;
-// var azureKey      = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")!;
-// builder.AddAzureOpenAIChatCompletion("my-deployment", azureEndpoint, azureKey);
-
-// --- Alternative: Ollama / local models via OpenAI-compatible endpoint ---
-// builder.AddOpenAIChatCompletion("llama3", apiKey: "unused",
-//     httpClient: new HttpClient { BaseAddress = new Uri("http://localhost:11434/v1") });
+Console.WriteLine("✅ MEAI IChatClient configured with OpenAI (gpt-4o-mini)\n");
 
 // =============================================================================
-// STEP 2: Register the VibeVoice Speech Plugin
+// STEP 2: Create the VibeVoice Speech Plugin
 // =============================================================================
 // The SpeechPlugin calls the VibeVoice Python backend HTTP API.
 // Change the base URL if your backend runs on a different port.
@@ -58,11 +54,7 @@ Console.WriteLine($"🔌 Backend URL: {backendUrl}");
 var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 var speechPlugin = new SpeechPlugin(httpClient, backendUrl);
 
-builder.Plugins.AddFromObject(speechPlugin, "Speech");
-
-var kernel = builder.Build();
-
-Console.WriteLine("✅ Semantic Kernel configured with OpenAI + VibeVoice plugin\n");
+Console.WriteLine("✅ SpeechPlugin configured\n");
 
 // =============================================================================
 // STEP 3: Get a User Prompt
@@ -80,23 +72,25 @@ if (string.IsNullOrWhiteSpace(userPrompt))
 }
 
 // =============================================================================
-// STEP 4: Generate a Text Response with Semantic Kernel
+// STEP 4: Generate a Text Response with Microsoft.Extensions.AI
 // =============================================================================
-// We invoke the LLM through SK's chat completion. The system message
-// tells the model to keep answers short (ideal for TTS).
+// We invoke the chat client with a system message and user message.
+// The system message tells the model to keep answers short (ideal for TTS).
 
 Console.WriteLine("\n🤖 Asking the AI...\n");
 
 var systemMessage = "You are a friendly, concise assistant. " +
                     "Keep answers under 3 sentences so they sound great when read aloud.";
 
-var result = await kernel.InvokePromptAsync(
-    $"""
-    <message role="system">{systemMessage}</message>
-    <message role="user">{userPrompt}</message>
-    """);
+var messages = new List<ChatMessage>
+{
+    new(ChatRole.System, systemMessage),
+    new(ChatRole.User, userPrompt)
+};
 
-var aiResponse = result.GetValue<string>() ?? "I have no response.";
+var response = await chatClient.GetResponseAsync(messages);
+
+var aiResponse = response.Text ?? "I have no response.";
 
 Console.WriteLine("📝 AI Response:");
 Console.WriteLine($"   \"{aiResponse}\"\n");
@@ -104,8 +98,7 @@ Console.WriteLine($"   \"{aiResponse}\"\n");
 // =============================================================================
 // STEP 5: Convert the AI Response to Speech via VibeVoice
 // =============================================================================
-// We call the SpeechPlugin directly. You could also let SK auto-invoke it
-// by enabling automatic function calling in a chat agent scenario.
+// We call the SpeechPlugin directly to convert text to audio.
 
 // Pick a voice — change this to any voice returned by GET /api/voices
 var voiceId = "en-US-Aria";

@@ -194,6 +194,326 @@ From the Aspire dashboard:
 
 ---
 
+## Scenario 3: Simple C# Console App
+
+A .NET 10 console app that mirrors Scenario 1 but calls the FastAPI backend via HTTP.
+
+### Step 1: Start the Backend
+
+The C# app calls the Python backend, so start it first:
+
+```bash
+cd src/scenario-02-fullstack/backend
+python -m venv venv
+
+# Windows
+.\venv\Scripts\Activate.ps1
+
+# Linux/macOS
+source venv/bin/activate
+
+pip install -r requirements.txt
+uvicorn main:app --port 5100
+```
+
+### Step 2: Run the Console App
+
+In a new terminal:
+
+```bash
+cd src/scenario-03-csharp-simple
+dotnet run
+```
+
+### Expected Output
+
+```
+Step 1: Checking backend health...
+  Status: Healthy ✓
+
+Step 2: Fetching available voices...
+  Found 6 voices ✓
+
+Step 3: Setting up TTS request...
+  Text: "Hello from C#..."
+  Voice: en-carter
+
+Step 4: Generating speech...
+  Success! ✓
+
+Step 5: Saving audio...
+  Saved to: output.wav (512 KB)
+
+Done! Play output.wav to hear the result.
+```
+
+### Configuration
+
+Set the backend URL via environment variable:
+
+```bash
+# Windows PowerShell
+$env:VIBEVOICE_BACKEND_URL = "http://localhost:8000"
+dotnet run
+
+# Linux/macOS
+export VIBEVOICE_BACKEND_URL="http://localhost:8000"
+dotnet run
+```
+
+---
+
+## Scenario 4: Microsoft.Extensions.AI + VibeVoice
+
+An AI agent that generates text responses and speaks them aloud using Microsoft.Extensions.AI (MEAI).
+
+### Step 1: Start the Backend
+
+```bash
+cd src/scenario-02-fullstack/backend
+python -m venv venv
+# Activate venv (Windows: .\venv\Scripts\Activate.ps1 or Linux: source venv/bin/activate)
+pip install -r requirements.txt
+uvicorn main:app --port 5100
+```
+
+### Step 2: Set Your OpenAI API Key
+
+```bash
+# Windows PowerShell
+$env:OPENAI_API_KEY = "sk-..."
+
+# Linux/macOS
+export OPENAI_API_KEY="sk-..."
+```
+
+### Step 3: Run the Agent
+
+```bash
+cd src/scenario-04-meai
+dotnet run
+```
+
+### Expected Output
+
+```
+Microsoft.Extensions.AI + VibeVoice Agent
+==========================================
+
+Configured with: gpt-4o-mini (OpenAI)
+Backend: http://localhost:5100
+
+Enter your question (or press Enter for default):
+> What is artificial intelligence?
+
+Generating response...
+Calling VibeVoice TTS API...
+Saving audio to agent_output.wav...
+Playing audio...
+
+Done! Audio saved to agent_output.wav
+```
+
+### Customization
+
+Edit `Program.cs` to:
+- Use Azure OpenAI, Ollama, or another LLM provider
+- Change the voice or other TTS parameters
+- Modify the prompt or response format
+
+---
+
+## Scenario 5: Batch TTS Processing
+
+A Python CLI that converts a folder of `.txt` files to `.wav` using parallel processing.
+
+### Step 1: Navigate to Scenario Directory
+
+```bash
+cd src/scenario-05-batch-processing
+```
+
+### Step 2: Create Virtual Environment
+
+```bash
+python -m venv venv
+
+# Windows
+.\venv\Scripts\Activate.ps1
+
+# Linux/macOS
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Run the Batch Processor
+
+```bash
+# Basic (uses defaults)
+python batch_tts.py
+
+# Custom directories
+python batch_tts.py --input-dir ./texts --output-dir ./audio
+
+# Use a different default voice
+python batch_tts.py --voice carter
+
+# Enable parallel processing (4 files at once)
+python batch_tts.py --parallel 4
+
+# All options combined
+python batch_tts.py --input-dir ./texts --output-dir ./audio --voice emma --parallel 2
+```
+
+### Expected Output
+
+```
+Batch TTS Processing
+====================
+
+Input:  ./sample-texts
+Output: ./output
+Voice:  carter (default)
+Parallel: 2
+
+Processing files...
+  ✓ hello-english.txt → hello-english.wav (45.2 KB)
+  ✓ hello-french.txt → hello-french.wav (52.1 KB)
+  ✓ story-english.txt → story-english.wav (128.5 KB)
+
+Summary:
+  Total files: 3
+  Successful: 3
+  Failed: 0
+  Total duration: 35.2s
+```
+
+### YAML Front-Matter
+
+Any `.txt` file can specify a per-file voice using YAML front-matter:
+
+```
+---
+voice: fr
+---
+Bonjour! Ceci est un texte en français.
+```
+
+---
+
+## Scenario 6: Real-Time Streaming TTS
+
+A Python script demonstrating chunked audio playback for low-latency TTS.
+
+### Step 1: Navigate to Scenario Directory
+
+```bash
+cd src/scenario-06-streaming-realtime
+```
+
+### Step 2: Create Virtual Environment
+
+```bash
+python -m venv venv
+
+# Windows
+.\venv\Scripts\Activate.ps1
+
+# Linux/macOS
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Run the Streaming Demo
+
+```bash
+python stream_tts.py
+```
+
+### Expected Output
+
+```
+VibeVoice Streaming Real-Time Demo
+===================================
+
+Loading model...
+Model loaded on CUDA!
+
+Generating audio stream...
+Chunk 1 received (44100 samples)
+Chunk 2 received (44100 samples)
+Chunk 3 received (44100 samples)
+...
+
+Performance Summary:
+  Time to first chunk: 280 ms
+  Total generation time: 4.2s
+  Real-time factor: 1.8x (generation faster than playback!)
+  Output saved: stream_output.wav
+```
+
+---
+
+## Scenario 7: MAUI Cross-Platform App
+
+A .NET MAUI application for Windows, macOS, Android, and iOS with full TTS UI.
+
+### Step 1: Start the Backend
+
+```bash
+cd src/scenario-02-fullstack/backend
+python -m venv venv
+# Activate venv
+pip install -r requirements.txt
+uvicorn main:app --port 5100
+```
+
+### Step 2: Install MAUI Workload
+
+```bash
+dotnet workload install maui
+```
+
+### Step 3: Run on Your Platform
+
+```bash
+cd src/scenario-07-maui-mobile
+
+# Windows Desktop
+dotnet build -t:Run -f net10.0-windows10.0.19041.0
+
+# Android Emulator
+dotnet build -t:Run -f net10.0-android
+
+# macOS (Mac Catalyst)
+dotnet build -t:Run -f net10.0-maccatalyst
+
+# iOS (requires Mac with Xcode)
+dotnet build -t:Run -f net10.0-ios
+```
+
+### Configuration
+
+Edit `MauiProgram.cs` to set the backend URL for your environment:
+
+```csharp
+var backendUrl = "http://localhost:5100";  // Local dev
+// var backendUrl = "http://10.0.2.2:5100";  // Android emulator
+// var backendUrl = "http://your-server:5100";  // Production
+```
+
+---
+
 ## Environment Variables
 
 ### Backend Configuration
@@ -295,6 +615,18 @@ allow_origins=["https://your-domain.com"]
 
 ## Quick Reference
 
+### All Scenarios at a Glance
+
+| Scenario | Language | Focus | Difficulty | Command |
+|----------|----------|-------|-----------|---------|
+| 1 | Python | Learning TTS basics | Beginner | `python main.py` |
+| 2 | C# + Python | Full-stack web app | Intermediate | `cd VoiceLabs.AppHost && dotnet run` |
+| 3 | C# | HTTP client example | Beginner | `dotnet run` |
+| 4 | C# | AI agent + TTS | Intermediate | `dotnet run` |
+| 5 | Python | Batch processing | Intermediate | `python batch_tts.py` |
+| 6 | Python | Real-time streaming | Intermediate | `python stream_tts.py` |
+| 7 | C# (MAUI) | Cross-platform app | Advanced | `dotnet build -t:Run` |
+
 ### Scenario 1 Commands
 ```bash
 cd src/scenario-01-simple
@@ -310,4 +642,54 @@ cd backend && pip install -r requirements.txt && cd ..
 dotnet workload install aspire
 dotnet restore VoiceLabs.slnx
 cd VoiceLabs.AppHost && dotnet run
+```
+
+### Scenario 3 Commands
+```bash
+# Terminal 1: Start backend (from Scenario 2)
+cd src/scenario-02-fullstack/backend
+python -m venv venv && .\venv\Scripts\activate
+pip install -r requirements.txt && uvicorn main:app --port 5100
+
+# Terminal 2: Run console app
+cd src/scenario-03-csharp-simple
+dotnet run
+```
+
+### Scenario 4 Commands
+```bash
+# Set API key first
+$env:OPENAI_API_KEY = "sk-..."
+
+# Terminal 1: Start backend (from Scenario 2)
+cd src/scenario-02-fullstack/backend
+python -m venv venv && .\venv\Scripts\activate
+pip install -r requirements.txt && uvicorn main:app --port 5100
+
+# Terminal 2: Run agent
+cd src/scenario-04-meai
+dotnet run
+```
+
+### Scenario 5 Commands
+```bash
+cd src/scenario-05-batch-processing
+python -m venv venv && .\venv\Scripts\activate
+pip install -r requirements.txt
+python batch_tts.py --parallel 2
+```
+
+### Scenario 6 Commands
+```bash
+cd src/scenario-06-streaming-realtime
+python -m venv venv && .\venv\Scripts\activate
+pip install -r requirements.txt
+python stream_tts.py
+```
+
+### Scenario 7 Commands
+```bash
+dotnet workload install maui
+cd src/scenario-07-maui-mobile
+dotnet build -t:Run -f net10.0-windows10.0.19041.0
 ```

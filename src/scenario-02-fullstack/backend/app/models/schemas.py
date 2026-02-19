@@ -28,7 +28,7 @@ class TTSRequest(BaseModel):
         description="Text to synthesize (1-1000 characters)"
     )
     voice_id: str = Field(
-        default="en-US-Aria",
+        default="en-carter",
         description="Voice ID from /api/voices"
     )
     output_format: str = Field(

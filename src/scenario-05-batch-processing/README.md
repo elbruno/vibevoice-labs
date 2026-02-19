@@ -39,7 +39,7 @@ python batch_tts.py --input-dir ./my-texts --output-dir ./my-audio
 ### Use a different default voice
 
 ```bash
-python batch_tts.py --voice FR
+python batch_tts.py --voice emma
 ```
 
 ### Parallel processing (4 files at once)
@@ -51,7 +51,7 @@ python batch_tts.py --parallel 4
 ### All options together
 
 ```bash
-python batch_tts.py --input-dir ./my-texts --output-dir ./results --voice EN-US --parallel 2
+python batch_tts.py --input-dir ./my-texts --output-dir ./results --voice grace --parallel 2
 ```
 
 ## YAML Front-Matter
@@ -60,30 +60,29 @@ Any `.txt` file can include YAML front-matter to override the voice for that spe
 
 ```text
 ---
-voice: FR
+voice: fr-woman
 ---
 Bonjour le monde! Ceci est un texte en français.
 ```
 
-If no front-matter is present, the `--voice` flag value (or its default `EN-Default`) is used.
+If no front-matter is present, the `--voice` flag value (or its default `carter`) is used.
 
 ### Available Voices
 
-| Speaker Code | Language |
-|---|---|
-| `EN-Default` | English (Standard) |
-| `EN-US` | American English |
-| `EN-BR` | British English |
-| `EN-AU` | Australian English |
-| `DE` | German |
-| `FR` | French |
-| `IT` | Italian |
-| `ES` | Spanish |
-| `PT` | Portuguese |
-| `NL` | Dutch |
-| `PL` | Polish |
-| `JP` | Japanese |
-| `KR` | Korean |
+| Voice Code | Language | Gender |
+|-----------|----------|--------|
+| `carter` | English | Male |
+| `davis` | English | Male |
+| `emma` | English | Female |
+| `frank` | English | Male |
+| `grace` | English | Female |
+| `mike` | English | Male |
+| `de-man` | German | Male |
+| `de-woman` | German | Female |
+| `fr-man` | French | Male |
+| `fr-woman` | French | Female |
+| `es-man` | Spanish | Male |
+| `es-woman` | Spanish | Female |
 
 ## Output Structure
 

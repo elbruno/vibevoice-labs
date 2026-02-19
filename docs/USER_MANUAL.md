@@ -8,31 +8,61 @@ Welcome to **VibeVoice Labs**, a showcase project demonstrating Microsoft's Vibe
 
 1. [Introduction](#introduction)
 2. [Prerequisites](#prerequisites)
-3. [Scenario 1: Simple Python Script](#scenario-1-simple-python-script)
-4. [Scenario 2: Full-Stack Application](#scenario-2-full-stack-application)
-5. [Using the Web Interface](#using-the-web-interface)
-6. [Available Voices](#available-voices)
-7. [Tips & Best Practices](#tips--best-practices)
-8. [Troubleshooting](#troubleshooting)
-9. [FAQ](#faq)
+3. [All Scenarios Overview](#all-scenarios-overview)
+4. [Scenario 1: Simple Python Script](#scenario-1-simple-python-script)
+5. [Scenario 2: Full-Stack Application](#scenario-2-full-stack-application)
+6. [Scenario 3: Simple C# Console](#scenario-3-simple-c-console)
+7. [Scenario 4: Microsoft.Extensions.AI Agent](#scenario-4-microsoftextensionsai-agent)
+8. [Scenario 5: Batch Processing](#scenario-5-batch-processing)
+9. [Scenario 6: Real-Time Streaming](#scenario-6-real-time-streaming)
+10. [Scenario 7: MAUI Cross-Platform](#scenario-7-maui-cross-platform)
+11. [Using the Web Interface](#using-the-web-interface)
+12. [Available Voices](#available-voices)
+13. [Tips & Best Practices](#tips--best-practices)
+14. [Troubleshooting](#troubleshooting)
+15. [FAQ](#faq)
 
 ---
 
 ## Introduction
 
-VibeVoice Labs demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B model into applications. The project includes:
+VibeVoice Labs demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B model into applications. The project includes **7 scenarios** showcasing different use cases:
 
-- **Scenario 1:** A minimal Python script for learning TTS basics
-- **Scenario 2:** A full-stack web application with Blazor UI, FastAPI backend, and .NET Aspire orchestration
+- **Scenario 1:** Minimal Python script for learning TTS basics
+- **Scenario 2:** Full-stack web application with Blazor UI, FastAPI backend, and .NET Aspire
+- **Scenario 3:** Simple C# console app calling the Python backend via HTTP
+- **Scenario 4:** AI agent using Microsoft.Extensions.AI (MEAI) to generate and speak responses
+- **Scenario 5:** Batch TTS processing CLI for converting folders of text to WAV files
+- **Scenario 6:** Real-time streaming demonstration with low-latency audio playback
+- **Scenario 7:** Cross-platform MAUI app for Windows, macOS, Android, and iOS
 
 ### Key Features
 
 | Feature | Description |
 |---------|-------------|
-| 🔊 Natural Speech | High-quality TTS with ~200ms latency |
+| 🔊 Natural Speech | High-quality TTS with ~200ms latency (VibeVoice-Realtime-0.5B) |
 | 🌍 Voice Presets | 6 English voices (Carter, Davis, Emma, Frank, Grace, Mike) |
-| 🎨 Modern UI | Glassmorphism design with dark theme |
+| 🎨 Modern UI | Glassmorphism design with dark theme (Blazor) |
 | 📥 Download | Export audio as WAV files |
+| 🤖 AI Integration | Microsoft.Extensions.AI support for AI-driven TTS |
+| 📱 Mobile Support | MAUI app for multiple platforms |
+| ⚡ Streaming | Real-time chunked audio playback |
+
+---
+
+## All Scenarios Overview
+
+| # | Name | Language | Focus | Difficulty | When to Use |
+|---|------|----------|-------|-----------|-----------|
+| 1 | Simple Python | Python | Learning basics | Beginner | Want to understand VibeVoice TTS fundamentals |
+| 2 | Full-Stack Web | C# + Python | Modern web app | Intermediate | Need a complete web application with UI |
+| 3 | C# Console | C# | HTTP client | Beginner | Learning to call a remote API from C# |
+| 4 | MEAI Agent | C# | AI + TTS | Intermediate | Build AI agents that speak |
+| 5 | Batch Processing | Python | Bulk conversion | Intermediate | Convert many text files to audio |
+| 6 | Real-Time Stream | Python | Low-latency play | Intermediate | Understand streaming audio generation |
+| 7 | MAUI Mobile | C# (MAUI) | Cross-platform UI | Advanced | Build mobile/desktop apps with TTS |
+
+
 
 ---
 
@@ -153,6 +183,232 @@ dotnet run
 | Frontend | Click in dashboard | Blazor TTS interface |
 | Backend API | `http://localhost:5100` | FastAPI REST API |
 | API Docs | `http://localhost:5100/docs` | Interactive Swagger UI |
+
+---
+
+## Scenario 3: Simple C# Console
+
+A console app that mirrors Scenario 1 but calls the Python backend via HTTP.
+
+### Quick Start
+
+**Terminal 1: Start the Python Backend**
+
+```bash
+cd src/scenario-02-fullstack/backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --port 5100
+```
+
+**Terminal 2: Run the Console App**
+
+```bash
+cd src/scenario-03-csharp-simple
+dotnet run
+```
+
+### What Happens
+
+1. **Health Check** — Verifies the backend is running
+2. **Voice Listing** — Fetches available voices from the API
+3. **Text-to-Speech** — Sends text and generates audio
+4. **Save Output** — Stores result as `output.wav`
+
+### Configuration
+
+Set a custom backend URL:
+
+```bash
+$env:VIBEVOICE_BACKEND_URL = "http://localhost:8000"
+dotnet run
+```
+
+---
+
+## Scenario 4: Microsoft.Extensions.AI Agent
+
+An AI agent that generates text responses and speaks them using Microsoft.Extensions.AI (MEAI).
+
+### Prerequisites
+
+- OpenAI API key (or local LLM via Ollama)
+- Python backend running (from Scenario 2)
+
+### Quick Start
+
+```bash
+# Set your OpenAI API key
+$env:OPENAI_API_KEY = "sk-..."
+
+# Terminal 1: Start the Python backend
+cd src/scenario-02-fullstack/backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --port 5100
+
+# Terminal 2: Run the agent
+cd src/scenario-04-meai
+dotnet run
+```
+
+### How It Works
+
+1. **Initialize MEAI IChatClient** with your LLM (OpenAI gpt-4o-mini by default)
+2. **Create SpeechPlugin** that wraps the VibeVoice HTTP API
+3. **Ask a question** — AI generates a text response
+4. **Speak the response** — Send generated text to VibeVoice API
+5. **Play audio** — Automatically play the generated speech
+
+### Customization
+
+Edit `Program.cs` to:
+- Use Azure OpenAI, Ollama, or another LLM provider
+- Change the voice selection
+- Modify the agent's prompt
+
+---
+
+## Scenario 5: Batch Processing
+
+A Python CLI that converts a folder of `.txt` files to `.wav` using parallel processing.
+
+### Quick Start
+
+```bash
+cd src/scenario-05-batch-processing
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python batch_tts.py
+```
+
+### Usage Examples
+
+```bash
+# Use different voices
+python batch_tts.py --voice emma --output-dir ./results
+
+# Enable parallel processing (process 4 files simultaneously)
+python batch_tts.py --parallel 4
+
+# Custom input/output directories
+python batch_tts.py --input-dir ./my-texts --output-dir ./my-audio --parallel 2
+```
+
+### YAML Front-Matter
+
+Override the voice for specific files:
+
+```
+---
+voice: fr
+---
+Bonjour! Ceci est un texte en français.
+```
+
+### Features
+
+- ✅ Processes all `.txt` files in a directory
+- ✅ Parallel processing for faster batch jobs
+- ✅ Per-file voice override via YAML front-matter
+- ✅ Progress bar and summary report
+- ✅ WAV output at 24kHz sample rate
+
+---
+
+## Scenario 6: Real-Time Streaming
+
+A Python demonstration of chunked audio playback for low-latency TTS.
+
+### Quick Start
+
+```bash
+cd src/scenario-06-streaming-realtime
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python stream_tts.py
+```
+
+### What You'll Experience
+
+- **Audio starts playing** ~300 ms after generation begins
+- **No waiting** for the entire text to be synthesized
+- **Real-time factor** printed at the end (1.8x = generation faster than playback)
+- **Full audio saved** to `stream_output.wav`
+
+### Performance Metrics
+
+| Metric | What It Means |
+|--------|--------------|
+| Time to first chunk | Latency before audio playback starts |
+| Total generation time | Wall-clock time for full synthesis |
+| Real-time factor | >1.0 = faster than real-time |
+
+---
+
+## Scenario 7: MAUI Cross-Platform
+
+A .NET MAUI application supporting Windows, macOS, Android, and iOS.
+
+### Prerequisites
+
+```bash
+dotnet workload install maui
+```
+
+### Quick Start
+
+**Terminal 1: Start the Python Backend**
+
+```bash
+cd src/scenario-02-fullstack/backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --port 5100
+```
+
+**Terminal 2: Run the MAUI App**
+
+```bash
+cd src/scenario-07-maui-mobile
+dotnet workload install maui
+
+# Windows Desktop
+dotnet build -t:Run -f net10.0-windows10.0.19041.0
+
+# Android Emulator
+dotnet build -t:Run -f net10.0-android
+
+# macOS (Mac Catalyst)
+dotnet build -t:Run -f net10.0-maccatalyst
+
+# iOS (requires Mac with Xcode)
+dotnet build -t:Run -f net10.0-ios
+```
+
+### Configuration
+
+Edit `MauiProgram.cs` to set the backend URL:
+
+```csharp
+var backendUrl = "http://localhost:5100";           // Local dev
+// var backendUrl = "http://10.0.2.2:5100";         // Android emulator
+// var backendUrl = "http://your-server:5100";      // Remote server
+```
+
+### Features
+
+- ✅ Clean, modern UI with dark theme
+- ✅ Text input with character counter
+- ✅ Voice selection dropdown
+- ✅ Audio playback via Plugin.Maui.Audio
+- ✅ Download audio files
+- ✅ Works on all platforms from single codebase
 
 ---
 

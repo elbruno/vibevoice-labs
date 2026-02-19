@@ -49,3 +49,13 @@
 - `generate_stream()` yields numpy arrays per chunk; `sd.play(chunk, blocking=True)` queues them naturally
 - `sounddevice` may fail on headless servers — always provide a file-save fallback
 - Performance summary (first-chunk latency, RTF) is valuable for demonstrating VibeVoice's streaming advantage
+
+### 2026-02-19: Python Scenarios Verification and Fixes
+- **Scenario 1:** ✅ All files compile, imports work, README updated with correct voice list (Carter, Davis, Emma, Frank, Grace, Mike)
+- **Scenario 2:** ✅ Backend complete with modular structure; fixed default voice_id from "en-US-Aria" to "en-carter" to match actual voice registry; updated README examples
+- **Scenario 5:** ✅ Batch processing tool complete with YAML front-matter support; fixed README voice codes to match VOICE_PRESETS keys; updated sample files (hello-french.txt, hello-spanish.txt) to use correct voice codes (fr-woman, es-woman)
+- **Scenario 6:** ✅ Streaming demo complete with chunked playback; all syntax valid
+- All Python files compile successfully via `python -m py_compile`
+- All import resolution verified for scenario-02 backend (`from app.api.routes import router` etc.)
+- **Critical fix:** Voice ID consistency across all scenarios — backend uses kebab-case (en-carter, en-emma), batch tool uses lowercase (carter, emma, fr-woman, es-woman)
+- requirements.txt files verified complete for all scenarios

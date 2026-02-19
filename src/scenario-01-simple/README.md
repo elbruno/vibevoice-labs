@@ -42,17 +42,15 @@ Edit `main.py` to:
 
 ## Available Voices
 
-| Speaker ID | Language |
-|------------|----------|
-| EN-Default | English (Default) |
-| EN-US | American English |
-| EN-BR | British English |
-| DE | German |
-| FR | French |
-| IT | Italian |
-| ES | Spanish |
-| PT | Portuguese |
-| NL | Dutch |
-| PL | Polish |
-| JP | Japanese |
-| KR | Korean |
+English voices included in this scenario:
+
+| Speaker | Gender | Description |
+|---------|--------|-------------|
+| Carter  | Male   | Clear American English (default) |
+| Davis   | Male   | American English |
+| Emma    | Female | American English |
+| Frank   | Male   | American English |
+| Grace   | Female | American English |
+| Mike    | Male   | American English |
+
+To change voices, edit the `SPEAKER_NAME` variable in `main.py`.

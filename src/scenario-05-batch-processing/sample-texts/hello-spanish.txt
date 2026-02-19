@@ -1,4 +1,4 @@
 ---
-voice: ES
+voice: es-woman
 ---
 ¡Hola y bienvenido a VibeVoice Labs! Esta es una demostración de síntesis de voz en español.

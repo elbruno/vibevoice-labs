@@ -55,13 +55,13 @@ src/scenario-03-csharp-simple/
 └── README.md        # Quick start guide
 ```
 
-### Scenario 4: Semantic Kernel + VibeVoice
-An AI agent that generates text responses and speaks them using .NET 10 + Microsoft.SemanticKernel. **Intermediate level.**
+### Scenario 4: Microsoft.Extensions.AI + VibeVoice
+An AI agent that generates text responses and speaks them using .NET 10 + Microsoft.Extensions.AI (MEAI). **Intermediate level.**
 
 ```
-src/scenario-04-semantic-kernel/
-├── Program.cs                # Semantic Kernel agent setup
-├── .csproj                  # Project file with SK dependencies
+src/scenario-04-meai/
+├── Program.cs                # MEAI IChatClient agent setup
+├── .csproj                  # Project file with MEAI dependencies
 └── README.md                # Quick start guide
 ```
 
@@ -153,10 +153,10 @@ cd src/scenario-03-csharp-simple
 dotnet run
 ```
 
-### Scenario 4 — Semantic Kernel Agent
+### Scenario 4 — Microsoft.Extensions.AI Agent
 
 ```bash
-cd src/scenario-04-semantic-kernel
+cd src/scenario-04-meai
 dotnet run
 ```
 
@@ -217,9 +217,9 @@ vibevoice-labs/
     │   ├── VoiceLabs.ConsoleApp.csproj
     │   └── README.md
     │
-    ├── scenario-04-semantic-kernel/        # AI agent with Semantic Kernel
+    ├── scenario-04-meai/                   # AI agent with Microsoft.Extensions.AI
     │   ├── Program.cs
-    │   ├── VoiceLabs.SKAgent.csproj
+    │   ├── VoiceLabs.MEAI.csproj
     │   └── README.md
     │
     ├── scenario-05-batch-processing/       # Batch TTS CLI

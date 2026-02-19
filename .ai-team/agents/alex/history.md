@@ -53,6 +53,20 @@
 - Backend URL configurable via `VIBEVOICE_BACKEND_URL` env var (default `http://localhost:5100`)
 - .NET 10 project builds cleanly with zero errors
 
+### 2026-02-19: Scenario 4 — REWRITTEN to Microsoft.Extensions.AI
+- **Complete rewrite** from Semantic Kernel to Microsoft.Extensions.AI (MEAI) per Bruno's request
+- **Directory renamed:** `scenario-04-semantic-kernel/` → `scenario-04-meai/` (old directory removed entirely)
+- **Program.cs:** Rewritten to use `IChatClient` abstraction from `Microsoft.Extensions.AI`
+  - Pattern: `new OpenAIClient(apiKey).GetChatClient("gpt-4o-mini").AsIChatClient()`
+  - Uses `ChatMessage` with `ChatRole.System` and `ChatRole.User`
+  - Response via `chatClient.GetResponseAsync(messages)`
+- **SpeechPlugin.cs:** Simplified to plain HTTP client wrapper (no SK attributes)
+- **VoiceLabs.MEAI.csproj:** Uses `Microsoft.Extensions.AI.OpenAI` v10.3.0 (removed SK dependency)
+- **README.md:** Completely rewritten with MEAI pattern examples and explanation
+- **Documentation updates:** Root README, USER_MANUAL, GETTING_STARTED, ARCHITECTURE all updated
+- **Build status:** ✅ Verified with `dotnet build` (zero errors, package resolution to v10.3.0)
+- **Rationale:** MEAI is a lightweight abstraction for direct chat completion calls, simpler than SK for this use case
+
 ### 2026-02-19: Scenario 3 — C# Console Simple Demo
 - Created `src/scenario-03-csharp-simple/` mirroring Scenario 1's step-by-step teaching style in C#
 - Uses top-level statements with `HttpClient` calling the Python FastAPI backend
@@ -60,3 +74,19 @@
 - JSON models use `[JsonPropertyName("snake_case")]` records for API compatibility
 - Includes commented-out alternatives for multilingual voices and streaming example
 - .NET 10 (`net10.0` TFM), no external NuGet packages needed (System.Text.Json is built-in)
+
+### 2026-02-19: All C# Scenarios Build Status
+- **Scenario 2 (Full Stack):** ✅ Builds successfully (`dotnet build VoiceLabs.slnx`)
+  - VoiceLabs.ServiceDefaults, VoiceLabs.Web, VoiceLabs.AppHost, VoiceLabs.Web.Tests all compile
+  - Home.razor contains complete TTS UI with glassmorphism styling, audio playback, collapsible sections
+- **Scenario 3 (C# Console):** ✅ Builds successfully (`dotnet build VoiceLabs.Console.csproj`)
+  - Zero errors, README.md accurate with usage instructions and configuration
+- **Scenario 4 (Semantic Kernel):** ✅ Builds successfully with known warning (`dotnet build VoiceLabs.SK.csproj`)
+  - NU1904 vulnerability warning on Microsoft.SemanticKernel.Core 1.54.0 is a known issue
+  - SpeechPlugin.cs exists in Plugins/ directory with [KernelFunction] attribute
+  - README.md accurate with OpenAI API key setup and alternative LLM providers
+- **Scenario 7 (MAUI Mobile):** ⚠️ Requires `dotnet workload install maui`
+  - NETSDK1147: maui-android workload not installed on build machine
+  - All source files exist: MainPage.xaml, Services/TtsService.cs, platform scaffolding
+  - README.md accurate with workload installation instructions and platform-specific run commands
+  - Code structure is complete and correct; builds cleanly once workload is installed

@@ -1,4 +1,4 @@
 ---
-voice: FR
+voice: fr-woman
 ---
 Bonjour et bienvenue à VibeVoice Labs! Ceci est une démonstration de la synthèse vocale en français.

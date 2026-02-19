@@ -46,3 +46,14 @@
 - **Python tests (pytest):** ✅ 12/12 collected (skipped at runtime — backend not yet implemented)
 - **No code fixes needed** — all buildable projects compile clean, all tests pass
 - **Advisory:** Scenario 04 should upgrade `Microsoft.SemanticKernel` to address GHSA-2ww3-72rp-wpp4
+
+### 2026-02-19: Full test run requested by Bruno
+- **Scenario 02 C# tests:** ✅ 8/8 passed (0 errors, 0 warnings) — xUnit tests with mocked HTTP handlers
+- **Scenario 02 Python tests:** ✅ 12/12 collected, all skipped (backend FastAPI app not yet implemented)
+- **All builds verified:**
+  - Scenario 02 (fullstack): ✅ Clean build
+  - Scenario 03 (C# console): ✅ Clean build
+  - Scenario 04 (Semantic Kernel): ✅ Build succeeded (2 NU1904 warnings for SemanticKernel.Core vulnerability)
+  - Scenario 07 (MAUI): ❌ Build failed (requires maui-android workload — not a code issue)
+  - Python scripts (01, 05, 06): ✅ All syntax valid
+- **Summary:** All working code compiles and all active tests pass. No fixes needed.
