@@ -21,21 +21,30 @@ Key metrics printed at the end:
 | GPU | NVIDIA GPU with CUDA recommended (CPU works but is slower) |
 | Audio output | Speakers or headphones connected to the machine |
 | Model | `microsoft/VibeVoice-Realtime-0.5B` (auto-downloaded on first run, ~1 GB) |
+| **Python environment** | Set up at the repo root (see [Getting Started](../../docs/GETTING_STARTED.md#python-environment-setup-one-time)) |
 
 ## How to Run
 
+From the repository root, activate the shared virtual environment:
+
+**Windows:**
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
 ```bash
-# 1. Create and activate a virtual environment
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-# source .venv/bin/activate
+source .venv/bin/activate
+```
 
-# 2. Install dependencies
+If you haven't installed dependencies yet:
+```bash
 pip install -r requirements.txt
+```
 
-# 3. Run the streaming demo
+Then run the streaming demo:
+```bash
+cd src/scenario-06-streaming-realtime
 python stream_tts.py
 ```
 

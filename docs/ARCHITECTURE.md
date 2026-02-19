@@ -61,7 +61,9 @@ The orchestration layer that manages service lifecycle and discovery.
 
 **Key Configuration:**
 ```csharp
+// Uses the shared virtual environment at the repository root (.venv)
 var backend = builder.AddUvicornApp("backend", "../backend", "main:app")
+    .WithVirtualEnvironment("../../.venv")
     .WithHttpEndpoint(port: 5100, env: "PORT")
     .WithExternalHttpEndpoints();
 

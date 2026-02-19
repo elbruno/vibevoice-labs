@@ -1,5 +1,9 @@
-vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
-click
-tqdm
-pyyaml
-soundfile
+# This scenario uses the shared virtual environment at the repository root.
+# See: ../../requirements.txt
+#
+# Setup:
+#   1. From repo root: python -m venv .venv
+#   2. Activate: .venv\Scripts\Activate.ps1 (Windows) or source .venv/bin/activate (Linux/macOS)
+#   3. Install: pip install -r requirements.txt
+
+-r ../../requirements.txt

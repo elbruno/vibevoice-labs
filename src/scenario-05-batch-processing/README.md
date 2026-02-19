@@ -14,12 +14,30 @@ A Python CLI tool that reads `.txt` files from an input directory and generates 
 
 - **Python 3.11+**
 - **GPU recommended** (CUDA-capable) — works on CPU too, but slower
+- **Python environment set up at the repo root** (see [Getting Started](../../docs/GETTING_STARTED.md#python-environment-setup-one-time))
 
 ## Setup
 
+From the repository root, activate the shared virtual environment:
+
+**Windows:**
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
+```bash
+source .venv/bin/activate
+```
+
+If you haven't installed dependencies yet:
+```bash
+pip install -r requirements.txt
+```
+
+Then navigate to this scenario:
 ```bash
 cd src/scenario-05-batch-processing
-pip install -r requirements.txt
 ```
 
 ## Usage

@@ -1,23 +1,9 @@
-# VibeVoice Labs - FastAPI Backend Dependencies
-# ==============================================
+# This scenario uses the shared virtual environment at the repository root.
+# See: ../../../requirements.txt
+#
+# Setup:
+#   1. From repo root: python -m venv .venv
+#   2. Activate: .venv\Scripts\Activate.ps1 (Windows) or source .venv/bin/activate (Linux/macOS)
+#   3. Install: pip install -r requirements.txt
 
-# FastAPI - Modern web framework for building APIs
-fastapi>=0.115.0
-
-# Uvicorn - ASGI server for running FastAPI
-uvicorn>=0.32.0
-
-# VibeVoice TTS Model (installed from GitHub with streaming TTS support)
-vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
-
-# SoundFile - Audio file I/O for WAV export
-soundfile>=0.12.0
-
-# Pydantic - Data validation (included with FastAPI, but explicit)
-pydantic>=2.0.0
-
-# Python-multipart - For form data parsing
-python-multipart>=0.0.9
-
-# NumPy - Numerical computing
-numpy>=1.24.0
+-r ../../../requirements.txt

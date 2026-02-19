@@ -108,36 +108,44 @@ src/scenario-07-maui-mobile/
 
 ## 🚀 Quick Start
 
+### One-Time Setup (All Python Scenarios)
+
+Create a single virtual environment at the repo root:
+
+```bash
+# From the repo root
+python -m venv .venv
+
+# Activate (Windows PowerShell)
+.venv\Scripts\Activate.ps1
+
+# Activate (Windows CMD)
+.venv\Scripts\activate.bat
+
+# Activate (Linux/macOS)
+source .venv/bin/activate
+
+# Install all Python dependencies
+pip install -r requirements.txt
+```
+
+> **Note:** First installation downloads the VibeVoice model (~1-2 GB). Voice presets (~4 MB each) are auto-downloaded on first run.
+
 ### Scenario 1 — Simple Python Script
 
 ```bash
 cd src/scenario-01-simple
-
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the demo
 python main.py
 ```
 
-**Output:** `output.wav` containing synthesized speech. Voice presets are auto-downloaded on first run.
+**Output:** `output.wav` containing synthesized speech.
 
 ### Scenario 2 — Full-Stack Application
 
 ```bash
 cd src/scenario-02-fullstack
 
-# Install Python dependencies
-cd backend
-pip install -r requirements.txt
-cd ..
-
-# Run with Aspire
+# Run with Aspire (starts both backend and frontend)
 cd VoiceLabs.AppHost
 dotnet run
 ```
@@ -164,9 +172,6 @@ dotnet run
 
 ```bash
 cd src/scenario-05-batch-processing
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
 python batch_tts.py --input-dir ./sample-texts --output-dir ./output --voice carter
 ```
 
@@ -174,9 +179,6 @@ python batch_tts.py --input-dir ./sample-texts --output-dir ./output --voice car
 
 ```bash
 cd src/scenario-06-streaming-realtime
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
 python stream_tts.py
 ```
 

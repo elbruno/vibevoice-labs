@@ -1,0 +1,42 @@
+# VibeVoice Labs - Unified Python Dependencies
+# =============================================
+# 
+# This single requirements file covers all Python scenarios.
+# Create one virtual environment at the repo root:
+#
+#   python -m venv .venv
+#   .venv\Scripts\activate      # Windows
+#   source .venv/bin/activate   # Linux/macOS
+#   pip install -r requirements.txt
+#
+
+# =============================================================================
+# Core: VibeVoice TTS Model (required for all scenarios)
+# =============================================================================
+vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
+
+# =============================================================================
+# Scenario 2 (Full-Stack Backend): FastAPI dependencies
+# =============================================================================
+fastapi>=0.115.0
+uvicorn>=0.32.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+
+# =============================================================================
+# Scenario 5 (Batch Processing): CLI and YAML support
+# =============================================================================
+click
+tqdm
+pyyaml
+
+# =============================================================================
+# Scenario 6 (Streaming): Real-time audio playback
+# =============================================================================
+sounddevice
+
+# =============================================================================
+# Shared: Audio I/O and numerical computing
+# =============================================================================
+soundfile>=0.12.0
+numpy>=1.24.0

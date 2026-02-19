@@ -28,37 +28,35 @@ This guide walks you through setting up and running VibeVoice Labs.
 | **Storage** | 5 GB free | 10 GB free (for model caching) |
 | **GPU** | None | NVIDIA GPU with CUDA 12.1+ |
 
-## Scenario 1: Simple Python Script
+---
 
-A minimal script to learn VibeVoice TTS basics, including multilingual support.
+## Python Environment Setup (One-Time)
 
-### Step 1: Navigate to Scenario Directory
+All Python scenarios share a single virtual environment at the repository root. Set this up once before running any Python scenario.
 
-```bash
-cd src/scenario-01-simple
-```
+### Step 1: Create Virtual Environment
 
-### Step 2: Create Virtual Environment
+From the repository root:
 
 **Windows (PowerShell):**
 ```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
 **Windows (Command Prompt):**
 ```cmd
-python -m venv venv
-venv\Scripts\activate.bat
+python -m venv .venv
+.venv\Scripts\activate.bat
 ```
 
 **Linux/macOS:**
 ```bash
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 ```
 
-### Step 3: Install Dependencies
+### Step 2: Install All Python Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -66,7 +64,36 @@ pip install -r requirements.txt
 
 **Note:** First installation clones the VibeVoice repo from GitHub and downloads the model (~1-2 GB). Voice presets (~4 MB each) are auto-downloaded on first run.
 
-### Step 4: Run the Script
+### Step 3: Verify Installation
+
+```bash
+python -c "import vibevoice; print('VibeVoice installed successfully!')"
+```
+
+> **Tip:** Always activate the virtual environment from the repo root (`.venv\Scripts\Activate.ps1` on Windows or `source .venv/bin/activate` on Linux/macOS) before running any Python scenario.
+
+---
+
+## Scenario 1: Simple Python Script
+
+A minimal script to learn VibeVoice TTS basics, including multilingual support.
+
+> **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
+
+### Step 1: Activate Virtual Environment (if not active)
+
+From the repository root:
+
+**Windows:** `.\.venv\Scripts\Activate.ps1`  
+**Linux/macOS:** `source .venv/bin/activate`
+
+### Step 2: Navigate to Scenario Directory
+
+```bash
+cd src/scenario-01-simple
+```
+
+### Step 3: Run the Script
 
 **Basic English Demo:**
 ```bash
@@ -145,41 +172,29 @@ Edit `main_multilingual.py` to try:
 
 A complete web application with Blazor frontend and FastAPI backend.
 
-### Step 1: Navigate to Scenario Directory
+> **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
 
-```bash
-cd src/scenario-02-fullstack
-```
+### Step 1: Activate Virtual Environment (if not active)
 
-### Step 2: Install Python Backend Dependencies
+From the repository root:
 
-```bash
-cd backend
-python -m venv venv
+**Windows:** `.\.venv\Scripts\Activate.ps1`  
+**Linux/macOS:** `source .venv/bin/activate`
 
-# Windows
-.\venv\Scripts\Activate.ps1
-
-# Linux/macOS
-source venv/bin/activate
-
-pip install -r requirements.txt
-cd ..
-```
-
-### Step 3: Install Aspire Workload (if not done)
+### Step 2: Install Aspire Workload (if not done)
 
 ```bash
 dotnet workload install aspire
 ```
 
-### Step 4: Restore .NET Dependencies
+### Step 3: Restore .NET Dependencies
 
 ```bash
+cd src/scenario-02-fullstack
 dotnet restore VoiceLabs.slnx
 ```
 
-### Step 5: Run with Aspire
+### Step 4: Run with Aspire
 
 ```bash
 cd VoiceLabs.AppHost
@@ -235,21 +250,23 @@ From the Aspire dashboard:
 
 A .NET 10 console app that mirrors Scenario 1 but calls the FastAPI backend via HTTP.
 
+> **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
+
 ### Step 1: Start the Backend
 
-The C# app calls the Python backend, so start it first:
+The C# app calls the Python backend, so start it first. From the repository root:
 
-```bash
+**Windows:**
+```powershell
+.\.venv\Scripts\Activate.ps1
 cd src/scenario-02-fullstack/backend
-python -m venv venv
+uvicorn main:app --port 5100
+```
 
-# Windows
-.\venv\Scripts\Activate.ps1
-
-# Linux/macOS
-source venv/bin/activate
-
-pip install -r requirements.txt
+**Linux/macOS:**
+```bash
+source .venv/bin/activate
+cd src/scenario-02-fullstack/backend
 uvicorn main:app --port 5100
 ```
 
@@ -304,13 +321,23 @@ dotnet run
 
 An AI agent that generates text responses and speaks them aloud using Microsoft.Extensions.AI (MEAI).
 
+> **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
+
 ### Step 1: Start the Backend
 
-```bash
+From the repository root:
+
+**Windows:**
+```powershell
+.\.venv\Scripts\Activate.ps1
 cd src/scenario-02-fullstack/backend
-python -m venv venv
-# Activate venv (Windows: .\venv\Scripts\Activate.ps1 or Linux: source venv/bin/activate)
-pip install -r requirements.txt
+uvicorn main:app --port 5100
+```
+
+**Linux/macOS:**
+```bash
+source .venv/bin/activate
+cd src/scenario-02-fullstack/backend
 uvicorn main:app --port 5100
 ```
 
@@ -364,31 +391,22 @@ Edit `Program.cs` to:
 
 A Python CLI that converts a folder of `.txt` files to `.wav` using parallel processing.
 
-### Step 1: Navigate to Scenario Directory
+> **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
+
+### Step 1: Activate Virtual Environment (if not active)
+
+From the repository root:
+
+**Windows:** `.\.venv\Scripts\Activate.ps1`  
+**Linux/macOS:** `source .venv/bin/activate`
+
+### Step 2: Navigate to Scenario Directory
 
 ```bash
 cd src/scenario-05-batch-processing
 ```
 
-### Step 2: Create Virtual Environment
-
-```bash
-python -m venv venv
-
-# Windows
-.\venv\Scripts\Activate.ps1
-
-# Linux/macOS
-source venv/bin/activate
-```
-
-### Step 3: Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Step 4: Run the Batch Processor
+### Step 3: Run the Batch Processor
 
 ```bash
 # Basic (uses defaults)
@@ -447,31 +465,22 @@ Bonjour! Ceci est un texte en français.
 
 A Python script demonstrating chunked audio playback for low-latency TTS.
 
-### Step 1: Navigate to Scenario Directory
+> **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
+
+### Step 1: Activate Virtual Environment (if not active)
+
+From the repository root:
+
+**Windows:** `.\.venv\Scripts\Activate.ps1`  
+**Linux/macOS:** `source .venv/bin/activate`
+
+### Step 2: Navigate to Scenario Directory
 
 ```bash
 cd src/scenario-06-streaming-realtime
 ```
 
-### Step 2: Create Virtual Environment
-
-```bash
-python -m venv venv
-
-# Windows
-.\venv\Scripts\Activate.ps1
-
-# Linux/macOS
-source venv/bin/activate
-```
-
-### Step 3: Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Step 4: Run the Streaming Demo
+### Step 3: Run the Streaming Demo
 
 ```bash
 python stream_tts.py

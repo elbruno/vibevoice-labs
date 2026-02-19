@@ -6,20 +6,26 @@ A minimal Python script demonstrating text-to-speech with VibeVoice-Realtime-0.5
 
 - Python 3.10 or later
 - GPU with CUDA recommended (works on CPU but slower)
+- **Python environment set up at the repo root** (see [Getting Started](../../docs/GETTING_STARTED.md#python-environment-setup-one-time))
 
 ## Setup
 
-1. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   venv\Scripts\activate     # Windows
-   ```
+From the repository root, activate the shared virtual environment:
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Windows:**
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
+```bash
+source .venv/bin/activate
+```
+
+If you haven't installed dependencies yet:
+```bash
+pip install -r requirements.txt
+```
 
 ## Usage
 
