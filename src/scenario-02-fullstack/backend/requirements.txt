@@ -1,0 +1,26 @@
+# VibeVoice Labs - FastAPI Backend Dependencies
+# ==============================================
+
+# FastAPI - Modern web framework for building APIs
+fastapi>=0.115.0
+
+# Uvicorn - ASGI server for running FastAPI
+uvicorn>=0.32.0
+
+# VibeVoice TTS Model
+vibevoice>=0.1.0
+
+# PyTorch - Deep learning framework (required by VibeVoice)
+torch>=2.0.0
+
+# SoundFile - Audio file I/O for WAV export
+soundfile>=0.12.0
+
+# Pydantic - Data validation (included with FastAPI, but explicit)
+pydantic>=2.0.0
+
+# Python-multipart - For form data parsing
+python-multipart>=0.0.9
+
+# NumPy - Numerical computing
+numpy>=1.24.0

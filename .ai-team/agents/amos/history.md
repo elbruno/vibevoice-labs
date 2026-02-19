@@ -26,3 +26,12 @@
 📌 Team update (2026-02-19): Holden designed complete API contract with 14 voice options, WAV format, 1000-char limit, clear directory structure for parallel development — decided by Holden
 
 📌 Team update (2026-02-19): Alex implemented Blazor frontend with glassmorphism UI, Aspire orchestration, service discovery via `http://backend`, JSON serialization with `[JsonPropertyName]` for snake_case compatibility — decided by Alex
+
+### 2026-02-19: Full test run — fixes applied
+- **Fixed:** Added `VoiceLabs.Web.Tests` project to `VoiceLabs.slnx` (was missing)
+- **Fixed:** Enabled `ProjectReference` to `VoiceLabs.Web` in test `.csproj` (was commented out)
+- **C# tests:** 8/8 passed (xUnit, mocked HTTP handlers for voices, TTS, health endpoints)
+- **Python tests:** 12/12 collected, all skipped — backend `main.py` not yet implemented (Naomi's work pending)
+- **Solution build:** All 4 projects build clean (0 errors, 0 warnings)
+- **Note:** C# tests still use internal placeholder models instead of actual `VoiceLabs.Web.Services` types — should be refactored to use real models now that ProjectReference is active
+- **Note:** Python tests will activate automatically once backend FastAPI app exists at `python-api/main.py` or `python-api/app/main.py`

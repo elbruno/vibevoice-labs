@@ -1,0 +1,242 @@
+﻿@page "/"
+@using VoiceLabs.Web.Services
+@inject TtsService TtsService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>VoiceLabs TTS</PageTitle>
+
+<div class="tts-container">
+    <header class="hero-section">
+        <div class="glow-effect"></div>
+        <h1 class="hero-title">
+            <span class="gradient-text">VoiceLabs</span>
+            <span class="subtitle">Text-to-Speech</span>
+        </h1>
+        <p class="hero-description">Transform your words into natural speech with VibeVoice AI</p>
+    </header>
+
+    <main class="content-section">
+        <!-- Text Input Section -->
+        <section class="glass-card">
+            <div class="card-header">
+                <span class="icon">📝</span>
+                <h2>Your Text</h2>
+                <span class="char-count @(textInput.Length > 900 ? "warning" : "")">
+                    @textInput.Length / 1000
+                </span>
+            </div>
+            <textarea 
+                @bind="textInput" 
+                @bind:event="oninput"
+                class="text-input"
+                placeholder="Enter the text you want to convert to speech..."
+                maxlength="1000"
+                rows="5"></textarea>
+        </section>
+
+        <!-- Sample Texts Section (Collapsible) -->
+        <section class="glass-card collapsible @(showSamples ? "expanded" : "")">
+            <div class="card-header clickable" @onclick="() => showSamples = !showSamples">
+                <span class="icon">💡</span>
+                <h2>Sample Texts</h2>
+                <span class="expand-icon">@(showSamples ? "▼" : "▶")</span>
+            </div>
+            @if (showSamples)
+            {
+                <div class="sample-buttons">
+                    @foreach (var sample in sampleTexts)
+                    {
+                        <button class="sample-btn" @onclick="() => SetSampleText(sample.Text)">
+                            <span class="sample-emoji">@sample.Emoji</span>
+                            <span class="sample-label">@sample.Label</span>
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+
+        <!-- Voice Selection Section -->
+        <section class="glass-card">
+            <div class="card-header">
+                <span class="icon">🎤</span>
+                <h2>Voice Selection</h2>
+            </div>
+            <div class="voice-selector">
+                @if (voices.Count == 0)
+                {
+                    <div class="loading-voices">
+                        <span class="spinner"></span>
+                        <span>Loading voices...</span>
+                    </div>
+                }
+                else
+                {
+                    <select @bind="selectedVoiceId" class="voice-dropdown">
+                        @foreach (var voice in voices)
+                        {
+                            <option value="@voice.Id">
+                                @voice.Name (@voice.Language) - @voice.Style
+                            </option>
+                        }
+                    </select>
+                }
+            </div>
+        </section>
+
+        <!-- Generate Button -->
+        <div class="action-section">
+            <button class="generate-btn @(isGenerating ? "generating" : "")" 
+                    @onclick="GenerateSpeech"
+                    disabled="@(isGenerating || string.IsNullOrWhiteSpace(textInput))">
+                @if (isGenerating)
+                {
+                    <span class="spinner"></span>
+                    <span>Generating...</span>
+                }
+                else
+                {
+                    <span class="btn-icon">🔊</span>
+                    <span>Generate Speech</span>
+                }
+            </button>
+        </div>
+
+        <!-- Audio Player Section -->
+        @if (audioUrl != null)
+        {
+            <section class="glass-card audio-section">
+                <div class="card-header">
+                    <span class="icon">🎵</span>
+                    <h2>Generated Audio</h2>
+                </div>
+                <div class="audio-player-container">
+                    <audio controls class="audio-player" src="@audioUrl">
+                        Your browser does not support the audio element.
+                    </audio>
+                    <button class="download-btn" @onclick="DownloadAudio">
+                        <span>⬇️</span>
+                        <span>Download WAV</span>
+                    </button>
+                </div>
+            </section>
+        }
+
+        <!-- Error Message -->
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="error-toast">
+                <span>⚠️</span>
+                <span>@errorMessage</span>
+                <button class="close-btn" @onclick="() => errorMessage = string.Empty">✕</button>
+            </div>
+        }
+    </main>
+
+    <footer class="footer">
+        <p>Powered by <strong>VibeVoice-Realtime-0.5B</strong> • Built with .NET Aspire</p>
+    </footer>
+</div>
+
+@code {
+    private string textInput = string.Empty;
+    private string selectedVoiceId = string.Empty;
+    private List<Voice> voices = new();
+    private bool showSamples = false;
+    private bool isGenerating = false;
+    private string? audioUrl = null;
+    private byte[]? audioData = null;
+    private string errorMessage = string.Empty;
+
+    private readonly List<SampleText> sampleTexts = new()
+    {
+        new("Hello! Welcome to VoiceLabs, your AI-powered text-to-speech solution.", "👋", "Greeting"),
+        new("The quick brown fox jumps over the lazy dog. This sentence contains every letter of the alphabet.", "🦊", "Pangram"),
+        new("In a world where technology and creativity converge, the possibilities are endless.", "🌟", "Inspirational"),
+        new("Welcome to the future of voice synthesis. Natural, expressive, and incredibly realistic.", "🚀", "Tech Demo"),
+        new("Good morning! Today's weather is sunny with a high of 75 degrees.", "☀️", "Weather"),
+        new("Breaking news: Scientists have made a groundbreaking discovery in AI research.", "📰", "News")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadVoicesAsync();
+    }
+
+    private async Task LoadVoicesAsync()
+    {
+        var response = await TtsService.GetVoicesAsync();
+        if (response?.Voices != null && response.Voices.Count > 0)
+        {
+            voices = response.Voices;
+            selectedVoiceId = voices[0].Id;
+        }
+        else
+        {
+            // Fallback default voices if backend unavailable
+            voices = new List<Voice>
+            {
+                new() { Id = "en-US-Aria", Name = "Aria", Language = "en-US", Style = "general" },
+                new() { Id = "en-US-Guy", Name = "Guy", Language = "en-US", Style = "general" },
+                new() { Id = "de-DE-Katja", Name = "Katja", Language = "de-DE", Style = "general" }
+            };
+            selectedVoiceId = voices[0].Id;
+        }
+    }
+
+    private void SetSampleText(string text)
+    {
+        textInput = text;
+        showSamples = false;
+    }
+
+    private async Task GenerateSpeech()
+    {
+        if (string.IsNullOrWhiteSpace(textInput)) return;
+        
+        isGenerating = true;
+        errorMessage = string.Empty;
+        
+        // Clean up previous audio URL
+        if (audioUrl != null)
+        {
+            audioUrl = null;
+            audioData = null;
+        }
+
+        try
+        {
+            audioData = await TtsService.GenerateSpeechAsync(textInput, selectedVoiceId);
+            
+            if (audioData != null && audioData.Length > 0)
+            {
+                var base64 = Convert.ToBase64String(audioData);
+                audioUrl = $"data:audio/wav;base64,{base64}";
+            }
+            else
+            {
+                errorMessage = "Failed to generate speech. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task DownloadAudio()
+    {
+        if (audioData == null) return;
+        
+        var fileName = $"voicelabs-{DateTime.Now:yyyyMMdd-HHmmss}.wav";
+        var base64 = Convert.ToBase64String(audioData);
+        await JS.InvokeVoidAsync("downloadFile", fileName, base64);
+    }
+
+    private record SampleText(string Text, string Emoji, string Label);
+}
+

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="VoiceLabs.AppHost/VoiceLabs.AppHost.csproj" />
+  <Project Path="VoiceLabs.ServiceDefaults/VoiceLabs.ServiceDefaults.csproj" />
+  <Project Path="VoiceLabs.Web/VoiceLabs.Web.csproj" />
+  <Project Path="VoiceLabs.Web.Tests/VoiceLabs.Web.Tests.csproj" />
+</Solution>

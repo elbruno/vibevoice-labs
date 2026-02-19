@@ -1,0 +1,58 @@
+# Scenario 1: Simple VibeVoice TTS Demo
+
+A minimal Python script demonstrating text-to-speech with VibeVoice-Realtime-0.5B.
+
+## Prerequisites
+
+- Python 3.10 or later
+- GPU with CUDA recommended (works on CPU but slower)
+
+## Setup
+
+1. Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   venv\Scripts\activate     # Windows
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Usage
+
+Run the script:
+```bash
+python main.py
+```
+
+The script will:
+1. Load the VibeVoice-Realtime-0.5B model (downloads on first run)
+2. Generate speech from the sample text
+3. Save the output as `output.wav`
+
+## Customization
+
+Edit `main.py` to:
+- Change the input text
+- Try different voices (see the commented examples)
+- Experiment with streaming generation
+
+## Available Voices
+
+| Speaker ID | Language |
+|------------|----------|
+| EN-Default | English (Default) |
+| EN-US | American English |
+| EN-BR | British English |
+| DE | German |
+| FR | French |
+| IT | Italian |
+| ES | Spanish |
+| PT | Portuguese |
+| NL | Dutch |
+| PL | Polish |
+| JP | Japanese |
+| KR | Korean |

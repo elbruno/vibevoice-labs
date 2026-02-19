@@ -343,6 +343,59 @@ paket-files/
 **/__pycache__/
 *.pyc
 
+# Python
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.eggs
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+parts/
+var/
+wheels/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+ENV/
+
+# Python testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# mypy / pyright / type checkers
+.mypy_cache/
+.pytype/
+.pyre/
+
+# Ruff / linters
+.ruff_cache/
+
 # Cake - Uncomment if you are using it
 #tools/**
 #!tools/packages.config
