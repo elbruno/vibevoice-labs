@@ -299,3 +299,29 @@ OpenTelemetry packages
 ## Status
 
 **Implemented** — Solution builds successfully, ready for backend integration testing.
+
+---
+
+### 2026-02-19: Scenario 3 — C# Console Simple Demo
+**By:** Alex (Frontend Dev)
+**What:** Created `src/scenario-03-csharp-simple/` — a C# console app that mirrors Scenario 1's Python script, calling the FastAPI backend via HTTP.
+**Why:** Bruno requested a C# equivalent of the simple Python demo to showcase the same TTS workflow in .NET 10.
+**Details:**
+- Uses the same API contract (`/api/health`, `/api/voices`, `/api/tts`)
+- Backend URL configurable via `VIBEVOICE_BACKEND_URL` environment variable
+- No new NuGet dependencies; uses built-in `System.Text.Json` and `HttpClient`
+- Follows identical step-by-step numbered structure as `main.py`
+
+---
+
+### 2026-02-19: Test Project Integration
+**By:** Amos (Tester)
+**What:**
+- Added `VoiceLabs.Web.Tests` to `VoiceLabs.slnx`
+- Enabled `ProjectReference` from test project to `VoiceLabs.Web`
+
+**Why:** The test project was scaffolded but not wired into the solution, so `dotnet build` and `dotnet test` on the solution would not include tests. The ProjectReference was commented out waiting for VoiceLabs.Web to exist — it now exists and builds.
+
+**Impact:**
+- `dotnet test` on the solution now runs all 8 C# unit tests
+- Future: C# tests should be refactored to use actual models from `VoiceLabs.Web.Services` instead of internal placeholder records

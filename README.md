@@ -21,10 +21,10 @@
 
 ## 📦 Scenarios
 
-This project includes two ways to explore VibeVoice:
+This project includes seven ways to explore VibeVoice across Python and .NET:
 
 ### Scenario 1: Simple Python Script
-A minimal, step-by-step Python script perfect for learning VibeVoice basics.
+A minimal, step-by-step Python script perfect for learning VibeVoice basics. **Beginner level.**
 
 ```
 src/scenario-01-simple/
@@ -34,7 +34,7 @@ src/scenario-01-simple/
 ```
 
 ### Scenario 2: Full-Stack Application
-A complete web application with Blazor frontend, FastAPI backend, and Aspire orchestration.
+A complete web application with Blazor frontend, FastAPI backend, and Aspire orchestration. **Intermediate level.**
 
 ```
 src/scenario-02-fullstack/
@@ -43,6 +43,57 @@ src/scenario-02-fullstack/
 ├── VoiceLabs.ServiceDefaults/
 ├── VoiceLabs.Web/            # Blazor .NET 10 frontend
 └── VoiceLabs.slnx            # Solution file
+```
+
+### Scenario 3: Simple C# Console App
+A .NET 10 console app mirroring Scenario 1's step-by-step style, calling the Python backend via HTTP. **Beginner level.**
+
+```
+src/scenario-03-csharp-simple/
+├── Program.cs        # Console app with HTTP calls
+├── .csproj          # Project file
+└── README.md        # Quick start guide
+```
+
+### Scenario 4: Semantic Kernel + VibeVoice
+An AI agent that generates text responses and speaks them using .NET 10 + Microsoft.SemanticKernel. **Intermediate level.**
+
+```
+src/scenario-04-semantic-kernel/
+├── Program.cs                # Semantic Kernel agent setup
+├── .csproj                  # Project file with SK dependencies
+└── README.md                # Quick start guide
+```
+
+### Scenario 5: Batch TTS Processing
+A Python CLI that converts a folder of .txt files to .wav. Uses VibeVoice directly, supports YAML front-matter for per-file voice, parallel processing. **Intermediate level.**
+
+```
+src/scenario-05-batch-processing/
+├── batch_tts.py     # Batch processing CLI
+├── requirements.txt # Python dependencies
+└── README.md        # Quick start guide
+```
+
+### Scenario 6: Real-Time Streaming
+A Python script using generate_stream() for real-time audio playback with ~300ms first-audible latency. **Intermediate level.**
+
+```
+src/scenario-06-streaming-realtime/
+├── streaming_tts.py # Real-time streaming implementation
+├── requirements.txt # Python dependencies
+└── README.md        # Quick start guide
+```
+
+### Scenario 7: MAUI Cross-Platform App
+A .NET 10 MAUI app for Windows/macOS/Android/iOS with voice selection and audio playback. **Advanced level.**
+
+```
+src/scenario-07-maui-mobile/
+├── MauiProgram.cs           # MAUI app setup
+├── VoiceLabs.Mobile.csproj  # Project file
+├── Pages/                   # MAUI pages
+└── README.md                # Quick start guide
 ```
 
 ## 🛠️ Prerequisites
@@ -56,7 +107,7 @@ src/scenario-02-fullstack/
 
 ## 🚀 Quick Start
 
-### Scenario 1 — Simple Script
+### Scenario 1 — Simple Python Script
 
 ```bash
 cd src/scenario-01-simple
@@ -75,7 +126,7 @@ python main.py
 
 **Output:** `output.wav` containing synthesized speech.
 
-### Scenario 2 — Full-Stack App
+### Scenario 2 — Full-Stack Application
 
 ```bash
 cd src/scenario-02-fullstack
@@ -94,6 +145,47 @@ Open the Aspire dashboard to access:
 - **Frontend:** Blazor TTS interface
 - **Backend:** FastAPI at `http://localhost:5100`
 
+### Scenario 3 — Simple C# Console App
+
+```bash
+cd src/scenario-03-csharp-simple
+dotnet run
+```
+
+### Scenario 4 — Semantic Kernel Agent
+
+```bash
+cd src/scenario-04-semantic-kernel
+dotnet run
+```
+
+### Scenario 5 — Batch TTS Processing
+
+```bash
+cd src/scenario-05-batch-processing
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python batch_tts.py --input-dir ./texts --output-dir ./audio
+```
+
+### Scenario 6 — Real-Time Streaming
+
+```bash
+cd src/scenario-06-streaming-realtime
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python streaming_tts.py "Hello, this is real-time TTS!"
+```
+
+### Scenario 7 — MAUI Mobile App
+
+```bash
+cd src/scenario-07-maui-mobile
+dotnet run -f net10.0-windows  # Or your target platform
+```
+
 ## 📁 Project Structure
 
 ```
@@ -107,25 +199,43 @@ vibevoice-labs/
 │   └── USER_MANUAL.md            # End-user documentation
 │
 └── src/
-    ├── scenario-01-simple/       # Minimal Python TTS script
+    ├── scenario-01-simple/                 # Minimal Python TTS script
     │   ├── main.py
     │   ├── requirements.txt
     │   └── README.md
     │
-    └── scenario-02-fullstack/    # Full-stack application
-        ├── backend/              # FastAPI + VibeVoice
-        │   ├── main.py
-        │   ├── requirements.txt
-        │   └── app/
-        │       ├── api/routes.py
-        │       ├── models/schemas.py
-        │       └── services/tts_service.py
-        │
-        ├── VoiceLabs.AppHost/    # Aspire orchestration
-        ├── VoiceLabs.ServiceDefaults/
-        ├── VoiceLabs.Web/        # Blazor frontend
-        ├── VoiceLabs.Web.Tests/  # xUnit tests
-        └── python-api/tests/     # pytest tests
+    ├── scenario-02-fullstack/              # Full-stack application
+    │   ├── backend/                        # FastAPI + VibeVoice
+    │   ├── VoiceLabs.AppHost/              # Aspire orchestration
+    │   ├── VoiceLabs.ServiceDefaults/
+    │   ├── VoiceLabs.Web/                  # Blazor frontend
+    │   └── python-api/tests/               # pytest tests
+    │
+    ├── scenario-03-csharp-simple/          # Simple C# console app
+    │   ├── Program.cs
+    │   ├── VoiceLabs.ConsoleApp.csproj
+    │   └── README.md
+    │
+    ├── scenario-04-semantic-kernel/        # AI agent with Semantic Kernel
+    │   ├── Program.cs
+    │   ├── VoiceLabs.SKAgent.csproj
+    │   └── README.md
+    │
+    ├── scenario-05-batch-processing/       # Batch TTS CLI
+    │   ├── batch_tts.py
+    │   ├── requirements.txt
+    │   └── README.md
+    │
+    ├── scenario-06-streaming-realtime/     # Real-time streaming
+    │   ├── streaming_tts.py
+    │   ├── requirements.txt
+    │   └── README.md
+    │
+    └── scenario-07-maui-mobile/            # MAUI cross-platform app
+        ├── MauiProgram.cs
+        ├── VoiceLabs.Mobile.csproj
+        ├── Pages/
+        └── README.md
 ```
 
 ## 🔧 Tech Stack

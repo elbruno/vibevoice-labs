@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="VoiceLabs.Maui.MainPage"
+             Title="VoiceLabs TTS"
+             BackgroundColor="#1a1a2e">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+
+            <!-- Header -->
+            <Label Text="🎙️ VoiceLabs TTS"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   TextColor="#a78bfa"
+                   HorizontalOptions="Center" />
+
+            <!-- Status -->
+            <Frame BackgroundColor="#16213e"
+                   CornerRadius="12"
+                   Padding="12"
+                   BorderColor="Transparent">
+                <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                    <Label x:Name="StatusIndicator"
+                           Text="●"
+                           TextColor="Gray"
+                           FontSize="14"
+                           VerticalOptions="Center" />
+                    <Label x:Name="StatusLabel"
+                           Text="Checking backend..."
+                           TextColor="#94a3b8"
+                           FontSize="14"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Frame>
+
+            <!-- Voice Picker -->
+            <Frame BackgroundColor="#16213e"
+                   CornerRadius="12"
+                   Padding="16"
+                   BorderColor="Transparent">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Voice"
+                           TextColor="#cbd5e1"
+                           FontSize="14"
+                           FontAttributes="Bold" />
+                    <Picker x:Name="VoicePicker"
+                            Title="Select a voice"
+                            TextColor="White"
+                            TitleColor="#64748b"
+                            BackgroundColor="#0f172a"
+                            ItemDisplayBinding="{Binding DisplayName}" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Text Input -->
+            <Frame BackgroundColor="#16213e"
+                   CornerRadius="12"
+                   Padding="16"
+                   BorderColor="Transparent">
+                <VerticalStackLayout Spacing="8">
+                    <HorizontalStackLayout>
+                        <Label Text="Text"
+                               TextColor="#cbd5e1"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               HorizontalOptions="StartAndExpand" />
+                        <Label x:Name="CharCount"
+                               Text="0 / 1000"
+                               TextColor="#64748b"
+                               FontSize="12" />
+                    </HorizontalStackLayout>
+                    <Editor x:Name="TextEditor"
+                            Placeholder="Enter text to speak..."
+                            PlaceholderColor="#475569"
+                            TextColor="White"
+                            BackgroundColor="#0f172a"
+                            HeightRequest="120"
+                            MaxLength="1000"
+                            TextChanged="OnTextChanged" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Sample Texts -->
+            <Frame BackgroundColor="#16213e"
+                   CornerRadius="12"
+                   Padding="16"
+                   BorderColor="Transparent">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Quick Samples"
+                           TextColor="#cbd5e1"
+                           FontSize="14"
+                           FontAttributes="Bold" />
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignContent="Start">
+                        <Button Text="👋 Hello World"
+                                Clicked="OnSampleClicked"
+                                CommandParameter="Hello! Welcome to VoiceLabs. This is a text-to-speech demonstration."
+                                BackgroundColor="#312e81"
+                                TextColor="#c4b5fd"
+                                CornerRadius="20"
+                                FontSize="12"
+                                Padding="12,8"
+                                Margin="4" />
+                        <Button Text="📰 News"
+                                Clicked="OnSampleClicked"
+                                CommandParameter="Breaking news: Scientists have made a remarkable discovery in the field of artificial intelligence, advancing natural language processing to unprecedented levels."
+                                BackgroundColor="#312e81"
+                                TextColor="#c4b5fd"
+                                CornerRadius="20"
+                                FontSize="12"
+                                Padding="12,8"
+                                Margin="4" />
+                        <Button Text="📖 Story"
+                                Clicked="OnSampleClicked"
+                                CommandParameter="Once upon a time, in a land far away, there lived a curious inventor who dreamed of building machines that could speak like humans."
+                                BackgroundColor="#312e81"
+                                TextColor="#c4b5fd"
+                                CornerRadius="20"
+                                FontSize="12"
+                                Padding="12,8"
+                                Margin="4" />
+                        <Button Text="🌍 Multilingual"
+                                Clicked="OnSampleClicked"
+                                CommandParameter="The quick brown fox jumps over the lazy dog. This pangram contains every letter of the English alphabet at least once."
+                                BackgroundColor="#312e81"
+                                TextColor="#c4b5fd"
+                                CornerRadius="20"
+                                FontSize="12"
+                                Padding="12,8"
+                                Margin="4" />
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Generate Button -->
+            <Button x:Name="GenerateButton"
+                    Text="🔊 Generate Speech"
+                    Clicked="OnGenerateClicked"
+                    BackgroundColor="#7c3aed"
+                    TextColor="White"
+                    FontSize="18"
+                    FontAttributes="Bold"
+                    CornerRadius="16"
+                    HeightRequest="56"
+                    IsEnabled="False" />
+
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsRunning="False"
+                               IsVisible="False"
+                               Color="#a78bfa" />
+
+            <!-- Playback Controls -->
+            <Frame x:Name="PlaybackFrame"
+                   BackgroundColor="#16213e"
+                   CornerRadius="12"
+                   Padding="16"
+                   BorderColor="Transparent"
+                   IsVisible="False">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Audio Ready"
+                           TextColor="#22c55e"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center" />
+                    <HorizontalStackLayout Spacing="12" HorizontalOptions="Center">
+                        <Button x:Name="PlayButton"
+                                Text="▶ Play"
+                                Clicked="OnPlayClicked"
+                                BackgroundColor="#059669"
+                                TextColor="White"
+                                CornerRadius="12"
+                                FontSize="16"
+                                Padding="24,12" />
+                        <Button x:Name="StopButton"
+                                Text="⏹ Stop"
+                                Clicked="OnStopClicked"
+                                BackgroundColor="#dc2626"
+                                TextColor="White"
+                                CornerRadius="12"
+                                FontSize="16"
+                                Padding="24,12" />
+                        <Button Text="💾 Save"
+                                Clicked="OnSaveClicked"
+                                BackgroundColor="#2563eb"
+                                TextColor="White"
+                                CornerRadius="12"
+                                FontSize="16"
+                                Padding="24,12" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Footer -->
+            <Label Text="VibeVoice Labs • Powered by VibeVoice TTS"
+                   TextColor="#475569"
+                   FontSize="12"
+                   HorizontalOptions="Center"
+                   Margin="0,8,0,0" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

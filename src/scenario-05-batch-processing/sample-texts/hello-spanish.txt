@@ -1,0 +1,4 @@
+---
+voice: ES
+---
+¡Hola y bienvenido a VibeVoice Labs! Esta es una demostración de síntesis de voz en español.

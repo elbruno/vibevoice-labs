@@ -2,7 +2,7 @@
 # ==========================================
 
 # VibeVoice TTS Model
-vibevoice>=0.1.0
+vibevoice>=0.0.1
 
 # PyTorch - Deep learning framework (required by VibeVoice)
 # Install with CUDA support for GPU acceleration:

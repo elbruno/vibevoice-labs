@@ -1,0 +1,4 @@
+vibevoice-realtime
+sounddevice
+soundfile
+numpy

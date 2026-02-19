@@ -1,0 +1,6 @@
+vibevoice-realtime
+click
+tqdm
+pyyaml
+soundfile
+numpy

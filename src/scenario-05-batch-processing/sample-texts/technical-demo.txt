@@ -1,0 +1,1 @@
+VibeVoice Realtime is a state-of-the-art text-to-speech model with zero-point-five billion parameters. It achieves approximately three hundred milliseconds of first audible latency, making it suitable for real-time applications. The model supports multiple languages including English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Japanese, and Korean.
