@@ -22,6 +22,16 @@
 - Documentation now provides complete guide for developers choosing which scenario to explore
 - Cross-referenced all docs: README → GETTING_STARTED → USER_MANUAL → ARCHITECTURE → per-scenario READMEs
 
+### 2026-02-19: Scenario 4 restructured into Aspire-orchestrated fullstack app
+- Renamed old `Program.cs` → `Program.cs.bak` and `Plugins/SpeechPlugin.cs` → `SpeechPlugin.cs.bak`
+- Created `VoiceLabs.ConversationHost/` (Aspire AppHost) with SDK 13.0.0, Aspire.Hosting.Python 13.1.1
+- AppHost references `VoiceLabs.ConversationWeb` project and uses `AddUvicornApp` for Python backend
+- Copied `VoiceLabs.ServiceDefaults/` from scenario-02 (already existed, verified matching)
+- Created `VoiceLabs.slnx` referencing ConversationHost, ServiceDefaults, ConversationWeb
+- Created empty `backend/` and `VoiceLabs.ConversationWeb/` directory stubs for Naomi and Alex
+- Created `.aspire/settings.json` pointing to ConversationHost
+- Pattern matches scenario-02-fullstack exactly (same SDK, packages, ServiceDefaults)
+
 Voice details confirmed: Carter, Davis, Emma, Frank, Grace, Mike (English presets)
 Model: microsoft/VibeVoice-Realtime-0.5B
 Install: `pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"`

@@ -105,3 +105,18 @@
 - **Config:** `PYTHON_PATH` env var replaces `VIBEVOICE_BACKEND_URL`
 - **Build:** ✅ Verified with `dotnet build` (zero errors)
 - **Voice presets:** Uses same Capitalized name format as Scenario 1 (Carter, Davis, Emma, etc.)
+
+### 2026-02-19: Scenario 4 — Blazor Conversation Web Frontend
+- Created `src/scenario-04-meai/VoiceLabs.ConversationWeb/` — real-time voice conversation UI
+- Copied ServiceDefaults into `src/scenario-04-meai/VoiceLabs.ServiceDefaults/` (same pattern as scenario-02)
+- WebSocket-based communication with backend at `ws://backend/ws/conversation` via Aspire service discovery
+- Push-to-talk UI: large circular button (green idle, red recording) with touch support for mobile
+- MediaRecorder API captures audio as webm; binary frames sent over WebSocket
+- Protocol: client sends binary audio + JSON `{"type":"end_audio"}`; server responds with transcript, response text, binary WAV, and audio_complete
+- Chat bubbles: user (right, blue), AI (left, gray) with inline audio playback buttons
+- Status indicators: Listening, Thinking, Speaking with animated pulse
+- Auto-reconnect on WebSocket disconnect with 2s delay
+- Dark glassmorphism theme: deep blues/purples (#0a0a1a bg), neon accents (#00f5d4), gradient header
+- Responsive design with mobile breakpoint at 600px
+- JavaScript interop releases microphone tracks after recording stops
+- Build verified: ✅ `dotnet build` succeeds with zero errors

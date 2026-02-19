@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="VoiceLabs.ConversationHost/VoiceLabs.ConversationHost.csproj" />
+  <Project Path="VoiceLabs.ServiceDefaults/VoiceLabs.ServiceDefaults.csproj" />
+  <Project Path="VoiceLabs.ConversationWeb/VoiceLabs.ConversationWeb.csproj" />
+</Solution>

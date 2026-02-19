@@ -66,3 +66,20 @@
 - All import resolution verified for scenario-02 backend (`from app.api.routes import router` etc.)
 - **Critical fix:** Voice ID consistency across all scenarios — backend uses kebab-case (en-carter, en-emma), batch tool uses lowercase (carter, emma, fr-woman, es-woman)
 - requirements.txt files verified complete for all scenarios
+
+### 2026-02-19: Scenario 4 — Conversation Backend Created
+- Created `src/scenario-04-meai/backend/` — real-time voice conversation system
+- **Architecture:** WebSocket-based STT → Chat → TTS pipeline
+- **Services:**
+  - `tts_service.py` — copied from scenario-02, same VibeVoice model loading pattern
+  - `stt_service.py` — dual-backend: NVIDIA Parakeet (primary) or faster-whisper (fallback), auto-selected via try/except
+  - `chat_service.py` — OpenAI gpt-4o-mini with conversation history, system prompt tuned for short spoken responses
+- **WebSocket protocol** (`/ws/conversation`):
+  - Client sends binary PCM audio frames (16kHz, 16-bit, mono) + `end_of_speech` JSON signal
+  - Server responds with `transcript` → `response` → binary WAV → `audio_complete`
+  - Supports `reset` to clear conversation history
+  - 30-second max audio buffer per turn
+- **REST endpoints:** `/api/health` (includes stt/chat availability), `/api/voices`
+- Port configurable via PORT env var (default 8000) for Aspire integration
+- All Python files compile successfully via `py_compile`
+- WebSocket protocol contract written to `.ai-team/decisions/inbox/naomi-websocket-protocol.md`

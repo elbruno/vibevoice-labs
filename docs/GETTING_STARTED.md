@@ -303,28 +303,17 @@ CSnakes auto-downloads Python and installs dependencies on first run.
 
 ---
 
-## Scenario 4: Microsoft.Extensions.AI + VibeVoice
+## Scenario 4: Real-Time Voice Conversation
 
-An AI agent that generates text responses and speaks them aloud using Microsoft.Extensions.AI (MEAI).
+A full-stack real-time voice conversation app orchestrated by Aspire. Speak into your mic, AI responds with voice.
 
 > **Prerequisite:** Complete the [Python Environment Setup](#python-environment-setup-one-time) first.
 
-### Step 1: Start the Backend
+### Step 1: Install Backend Dependencies
 
-From the repository root:
-
-**Windows:**
-```powershell
-.\.venv\Scripts\Activate.ps1
-cd src/scenario-02-fullstack/backend
-uvicorn main:app --port 5100
-```
-
-**Linux/macOS:**
 ```bash
-source .venv/bin/activate
-cd src/scenario-02-fullstack/backend
-uvicorn main:app --port 5100
+cd src/scenario-04-meai/backend
+pip install -r requirements.txt
 ```
 
 ### Step 2: Set Your OpenAI API Key
@@ -337,39 +326,22 @@ $env:OPENAI_API_KEY = "sk-..."
 export OPENAI_API_KEY="sk-..."
 ```
 
-### Step 3: Run the Agent
+### Step 3: Run with Aspire
 
 ```bash
-cd src/scenario-04-meai
+cd src/scenario-04-meai/VoiceLabs.ConversationHost
 dotnet run
 ```
 
 ### Expected Output
 
-```
-Microsoft.Extensions.AI + VibeVoice Agent
-==========================================
-
-Configured with: gpt-4o-mini (OpenAI)
-Backend: http://localhost:5100
-
-Enter your question (or press Enter for default):
-> What is artificial intelligence?
-
-Generating response...
-Calling VibeVoice TTS API...
+Open the Aspire dashboard, click the frontend endpoint. You'll see a conversation UI with:
+- Push-to-talk button (hold to speak)
+- Chat bubbles showing transcriptions and AI responses
+- Voice selector dropdown
+- Real-time audio playback of AI responses
 Saving audio to agent_output.wav...
 Playing audio...
-
-Done! Audio saved to agent_output.wav
-```
-
-### Customization
-
-Edit `Program.cs` to:
-- Use Azure OpenAI, Ollama, or another LLM provider
-- Change the voice or other TTS parameters
-- Modify the prompt or response format
 
 ---
 
@@ -688,13 +660,12 @@ dotnet run
 # Set API key first
 $env:OPENAI_API_KEY = "sk-..."
 
-# Terminal 1: Start backend (from Scenario 2)
-cd src/scenario-02-fullstack/backend
-python -m venv venv && .\venv\Scripts\activate
-pip install -r requirements.txt && uvicorn main:app --port 5100
+# Install backend dependencies
+cd src/scenario-04-meai/backend
+pip install -r requirements.txt
 
-# Terminal 2: Run agent
-cd src/scenario-04-meai
+# Run with Aspire
+cd ../VoiceLabs.ConversationHost
 dotnet run
 ```
 

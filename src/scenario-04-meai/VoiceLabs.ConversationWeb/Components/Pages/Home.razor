@@ -1,0 +1,281 @@
+@page "/"
+@rendermode InteractiveServer
+@using System.Net.WebSockets
+@using System.Text
+@using System.Text.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="conversation-container">
+    <div class="status-bar">
+        <div class="connection-status @(isConnected ? "connected" : "disconnected")">
+            <span class="status-dot"></span>
+            @(isConnected ? "Connected" : "Disconnected")
+        </div>
+        <div class="voice-selector">
+            <label>Voice:</label>
+            <select @bind="selectedVoice">
+                <option value="en-carter">Carter</option>
+                <option value="en-davis">Davis</option>
+                <option value="en-emma">Emma</option>
+                <option value="en-frank">Frank</option>
+                <option value="en-grace">Grace</option>
+                <option value="en-mike">Mike</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="chat-area" @ref="chatArea">
+        @foreach (var msg in messages)
+        {
+            <div class="chat-bubble @(msg.IsUser ? "user-bubble" : "ai-bubble")">
+                <div class="bubble-label">@(msg.IsUser ? "You" : "AI")</div>
+                <div class="bubble-text">@msg.Text</div>
+                @if (!msg.IsUser && msg.HasAudio)
+                {
+                    <button class="play-btn" @onclick="() => PlayAudio(msg.AudioBytes!)">
+                        🔊 Play
+                    </button>
+                }
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(statusText))
+        {
+            <div class="status-indicator">
+                <span class="status-pulse"></span> @statusText
+            </div>
+        }
+    </div>
+
+    <div class="controls-area">
+        <button class="push-to-talk @(isRecording ? "recording" : "")"
+                @onmousedown="StartRecording"
+                @onmouseup="StopRecording"
+                @ontouchstart="StartRecording"
+                @ontouchend="StopRecording"
+                disabled="@(!isConnected)">
+            <div class="mic-icon">🎤</div>
+            <div class="mic-label">@(isRecording ? "Release to Send" : "Hold to Talk")</div>
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-toast" @onclick="() => errorMessage = null">
+            ⚠️ @errorMessage
+        </div>
+    }
+</div>
+
+@code {
+    private ClientWebSocket? webSocket;
+    private CancellationTokenSource? cts;
+    private bool isConnected;
+    private bool isRecording;
+    private string? statusText;
+    private string? errorMessage;
+    private string selectedVoice = "en-emma";
+    private List<ChatMessage> messages = new();
+    private ElementReference chatArea;
+    private List<byte> pendingAudioBytes = new();
+
+    private class ChatMessage
+    {
+        public string Text { get; set; } = "";
+        public bool IsUser { get; set; }
+        public bool HasAudio { get; set; }
+        public byte[]? AudioBytes { get; set; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ConnectWebSocket();
+        }
+        // Scroll chat to bottom
+        await JS.InvokeVoidAsync("eval", "document.querySelector('.chat-area')?.scrollTo(0, document.querySelector('.chat-area')?.scrollHeight)");
+    }
+
+    private async Task ConnectWebSocket()
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("backend");
+            var backendUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://backend";
+            var wsUrl = backendUrl.Replace("https://", "wss://").Replace("http://", "ws://");
+
+            webSocket = new ClientWebSocket();
+            cts = new CancellationTokenSource();
+
+            await webSocket.ConnectAsync(new Uri($"{wsUrl}/ws/conversation"), cts.Token);
+            isConnected = true;
+            await InvokeAsync(StateHasChanged);
+
+            _ = Task.Run(ReceiveLoop);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Connection failed: {ex.Message}";
+            isConnected = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ReceiveLoop()
+    {
+        var buffer = new byte[1024 * 64];
+        try
+        {
+            while (webSocket?.State == WebSocketState.Open && cts is not null && !cts.IsCancellationRequested)
+            {
+                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    isConnected = false;
+                    await InvokeAsync(StateHasChanged);
+                    break;
+                }
+
+                if (result.MessageType == WebSocketMessageType.Text)
+                {
+                    var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    await HandleTextMessage(json);
+                }
+                else if (result.MessageType == WebSocketMessageType.Binary)
+                {
+                    pendingAudioBytes.AddRange(new ArraySegment<byte>(buffer, 0, result.Count));
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (WebSocketException)
+        {
+            isConnected = false;
+            errorMessage = "WebSocket disconnected. Reconnecting...";
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(2000);
+            await ConnectWebSocket();
+        }
+    }
+
+    private async Task HandleTextMessage(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var type = doc.RootElement.GetProperty("type").GetString();
+
+            switch (type)
+            {
+                case "transcript":
+                    var userText = doc.RootElement.GetProperty("text").GetString() ?? "";
+                    messages.Add(new ChatMessage { Text = userText, IsUser = true });
+                    statusText = "Thinking...";
+                    break;
+
+                case "response":
+                    var aiText = doc.RootElement.GetProperty("text").GetString() ?? "";
+                    messages.Add(new ChatMessage { Text = aiText, IsUser = false });
+                    statusText = "Speaking...";
+                    break;
+
+                case "audio_complete":
+                    if (pendingAudioBytes.Count > 0)
+                    {
+                        var lastAiMsg = messages.LastOrDefault(m => !m.IsUser);
+                        if (lastAiMsg != null)
+                        {
+                            lastAiMsg.HasAudio = true;
+                            lastAiMsg.AudioBytes = pendingAudioBytes.ToArray();
+                        }
+                        // Auto-play the response audio
+                        await JS.InvokeVoidAsync("audioInterop.playAudio", pendingAudioBytes.ToArray());
+                        pendingAudioBytes.Clear();
+                    }
+                    statusText = null;
+                    break;
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { }
+    }
+
+    private async Task StartRecording()
+    {
+        if (!isConnected || isRecording) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("audioInterop.startRecording");
+            isRecording = true;
+            statusText = "Listening...";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Microphone access denied: {ex.Message}";
+        }
+    }
+
+    private async Task StopRecording()
+    {
+        if (!isRecording) return;
+
+        try
+        {
+            isRecording = false;
+            statusText = "Processing...";
+            StateHasChanged();
+
+            var audioData = await JS.InvokeAsync<byte[]>("audioInterop.stopRecording");
+
+            if (webSocket?.State == WebSocketState.Open && audioData?.Length > 0)
+            {
+                // Send audio binary frame
+                await webSocket.SendAsync(
+                    new ArraySegment<byte>(audioData),
+                    WebSocketMessageType.Binary,
+                    true,
+                    cts?.Token ?? CancellationToken.None);
+
+                // Send end_audio signal
+                var endSignal = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "end_audio" }));
+                await webSocket.SendAsync(
+                    new ArraySegment<byte>(endSignal),
+                    WebSocketMessageType.Text,
+                    true,
+                    cts?.Token ?? CancellationToken.None);
+
+                statusText = "Thinking...";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to send audio: {ex.Message}";
+            statusText = null;
+        }
+    }
+
+    private async Task PlayAudio(byte[] audioBytes)
+    {
+        await JS.InvokeVoidAsync("audioInterop.playAudio", audioBytes);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        cts?.Cancel();
+        if (webSocket?.State == WebSocketState.Open)
+        {
+            try
+            {
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            }
+            catch { }
+        }
+        webSocket?.Dispose();
+        cts?.Dispose();
+    }
+}

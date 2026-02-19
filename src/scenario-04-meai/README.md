@@ -1,24 +1,41 @@
-# Scenario 4: Microsoft.Extensions.AI + VibeVoice — An AI Agent that Speaks
+# Scenario 4: Real-Time Voice Conversation with AI
 
-A C# console app that uses **Microsoft.Extensions.AI** (MEAI) to generate an AI response and then speaks it aloud through the **VibeVoice** TTS backend.
+A full-stack real-time voice conversation app orchestrated by **.NET Aspire**. Speak into your microphone, get AI responses spoken back — all in the browser.
 
-**Pattern:** Ask a question → AI generates text → VibeVoice speaks it 🎙️
+**Pattern:** 🎙️ Speak → STT (Parakeet) → AI Brain (OpenAI) → TTS (VibeVoice) → 🔊 Hear response
+
+## Architecture
+
+```
+Browser (Blazor)
+  ↕ WebSocket (audio + JSON messages)
+Aspire AppHost
+  ├── conversation-backend (Python FastAPI)
+  │   ├── STT: NVIDIA Parakeet / faster-whisper
+  │   ├── AI: OpenAI gpt-4o-mini
+  │   └── TTS: VibeVoice-Realtime-0.5B
+  └── frontend (Blazor Server)
+      ├── Push-to-talk microphone capture
+      ├── Audio playback via Web Audio API
+      └── Chat bubble conversation UI
+```
 
 ## Prerequisites
 
 | Requirement | Details |
 |---|---|
 | .NET 10 SDK | [Download](https://dotnet.microsoft.com/download/dotnet/10.0) |
+| Aspire workload | `dotnet workload install aspire` |
+| Python 3.11+ | [python.org](https://python.org) |
 | OpenAI API key | Set as `OPENAI_API_KEY` environment variable |
-| VibeVoice Python backend | Running on `http://localhost:5100` (see Scenario 2) |
+| GPU (optional) | CUDA 12.1+ recommended for STT + TTS models |
 
 ## Quick Start
 
-1. **Start the VibeVoice backend** (from the repo root):
+1. **Install Python dependencies:**
    ```bash
-   cd src/scenario-02-fullstack/backend
+   cd src/scenario-04-meai/backend
    pip install -r requirements.txt
-   uvicorn main:app --port 5100
    ```
 
 2. **Set your OpenAI API key:**
@@ -30,93 +47,82 @@ A C# console app that uses **Microsoft.Extensions.AI** (MEAI) to generate an AI 
    export OPENAI_API_KEY="sk-..."
    ```
 
-3. **Run the app:**
+3. **Run with Aspire:**
    ```bash
-   cd src/scenario-04-meai
+   cd src/scenario-04-meai/VoiceLabs.ConversationHost
    dotnet run
    ```
 
-4. **Enter a question** (or press Enter for the default) and hear the AI speak!
+4. Open the Aspire dashboard → click the **frontend** endpoint → start talking!
 
-## What the Demo Shows
+## How It Works
 
-| Step | What Happens |
-|------|-------------|
-| 1 | Configures Microsoft.Extensions.AI `IChatClient` with OpenAI (`gpt-4o-mini`) |
-| 2 | Creates a **SpeechPlugin** that wraps the VibeVoice HTTP API |
-| 3 | Reads a user prompt from the console |
-| 4 | Generates a concise AI text response via MEAI chat completion |
-| 5 | Sends the text to VibeVoice (`POST /api/tts`) and saves WAV audio |
-| 6 | Plays the audio file automatically |
+| Step | Component | What Happens |
+|------|-----------|-------------|
+| 1 | Frontend | User holds push-to-talk button, mic captures 16kHz PCM audio |
+| 2 | WebSocket | Audio chunks sent as binary frames to backend |
+| 3 | Backend STT | Parakeet (or faster-whisper) transcribes audio to text |
+| 4 | Backend AI | OpenAI gpt-4o-mini generates a conversational response |
+| 5 | Backend TTS | VibeVoice synthesizes response as 24kHz WAV audio |
+| 6 | WebSocket | Audio sent back as binary frames |
+| 7 | Frontend | Web Audio API plays the response, chat bubbles update |
 
-## Microsoft.Extensions.AI Pattern
+## WebSocket Protocol
 
-This demo uses the **IChatClient** abstraction from Microsoft.Extensions.AI:
+The frontend and backend communicate over WebSocket at `/ws/conversation`:
 
-```csharp
-using Microsoft.Extensions.AI;
-using OpenAI;
+| Direction | Type | Content |
+|-----------|------|---------|
+| Client → Server | Binary | PCM audio chunks (16kHz, 16-bit, mono) |
+| Client → Server | Text | `{"type": "end_of_speech"}` signals recording complete |
+| Server → Client | Text | `{"type": "transcript", "text": "..."}` |
+| Server → Client | Text | `{"type": "response", "text": "..."}` |
+| Server → Client | Binary | WAV audio chunks |
+| Server → Client | Text | `{"type": "audio_complete"}` |
 
-var chatClient = new OpenAIClient(apiKey)
-    .GetChatClient("gpt-4o-mini")
-    .AsIChatClient();
+## Configuration
 
-var messages = new List<ChatMessage>
-{
-    new(ChatRole.System, "You are a helpful assistant."),
-    new(ChatRole.User, "Why is the sky blue?")
-};
+### Change the AI Model
 
-var response = await chatClient.GetResponseAsync(messages);
-Console.WriteLine(response.Text);
-```
-
-## Customisation
-
-### Use a Different OpenAI Model
-
-Open `Program.cs` and uncomment the alternative you want:
-
-```csharp
-// OpenAI gpt-4o (more capable)
-var chatClient = new OpenAIClient(openAiKey)
-    .GetChatClient("gpt-4o")
-    .AsIChatClient();
+Edit `backend/app/services/chat_service.py`:
+```python
+self.model = "gpt-4o"  # or any OpenAI-compatible model
 ```
 
 ### Change the Voice
 
-Edit the `voiceId` variable in `Program.cs`, or call `GET /api/voices` to see what's available:
+Select a voice in the frontend dropdown, or set the default in the backend.
+Available voices: Carter, Davis, Emma, Frank, Grace, Mike.
 
-```bash
-curl http://localhost:5100/api/voices
-```
+### STT Model
 
-### Point to a Different Backend URL
-
-```bash
-$env:VIBEVOICE_BACKEND_URL = "http://my-server:8000"
-dotnet run
-```
+The backend tries NVIDIA Parakeet first, then falls back to faster-whisper. Configure in `backend/app/services/stt_service.py`.
 
 ## Project Structure
 
 ```
 scenario-04-meai/
-├── Program.cs              # Step-by-step console app
-├── Plugins/
-│   └── SpeechPlugin.cs     # HTTP client wrapper for VibeVoice API
-├── VoiceLabs.MEAI.csproj   # .NET 10 project file
-└── README.md               # You are here
+├── VoiceLabs.slnx                    # Solution file
+├── VoiceLabs.ConversationHost/       # Aspire AppHost
+│   └── AppHost.cs                    # Orchestrates backend + frontend
+├── backend/                          # Python FastAPI conversation service
+│   ├── main.py                       # FastAPI app + WebSocket endpoint
+│   ├── app/
+│   │   ├── services/
+│   │   │   ├── stt_service.py        # Speech-to-text (Parakeet)
+│   │   │   ├── chat_service.py       # AI brain (OpenAI)
+│   │   │   └── tts_service.py        # Text-to-speech (VibeVoice)
+│   │   ├── api/
+│   │   │   ├── routes.py             # REST endpoints
+│   │   │   └── websocket_handler.py  # WebSocket conversation loop
+│   │   └── models/
+│   │       └── schemas.py            # Pydantic models
+│   └── requirements.txt
+├── VoiceLabs.ConversationWeb/        # Blazor frontend
+│   ├── Program.cs                    # Aspire service defaults + HttpClient
+│   ├── Components/Pages/Home.razor   # Conversation UI
+│   └── wwwroot/js/audio.js           # Mic capture + audio playback
+├── VoiceLabs.ServiceDefaults/        # Aspire shared config
+├── Program.cs.bak                    # Old console app (reference)
+└── README.md                         # You are here
 ```
-
-## Why Microsoft.Extensions.AI?
-
-**Microsoft.Extensions.AI** is a .NET abstraction layer for AI services that provides:
-
-- **Provider-agnostic** — works with OpenAI, Azure OpenAI, Ollama, and other providers
-- **Lightweight** — minimal dependencies, no heavy frameworks
-- **Modern .NET** — built for .NET 10+ with async/await patterns
-- **Type-safe** — strongly-typed request/response models
-
-Unlike Semantic Kernel (which focuses on orchestration and agents), MEAI is a thin abstraction for direct chat completion calls.

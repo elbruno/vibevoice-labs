@@ -12,7 +12,7 @@ Welcome to **VibeVoice Labs**, a showcase project demonstrating Microsoft's Vibe
 4. [Scenario 1: Simple Python Script](#scenario-1-simple-python-script)
 5. [Scenario 2: Full-Stack Application](#scenario-2-full-stack-application)
 6. [Scenario 3: Simple C# Console](#scenario-3-simple-c-console)
-7. [Scenario 4: Microsoft.Extensions.AI Agent](#scenario-4-microsoftextensionsai-agent)
+7. [Scenario 4: Real-Time Voice Conversation](#scenario-4-real-time-voice-conversation)
 8. [Scenario 5: Batch Processing](#scenario-5-batch-processing)
 9. [Scenario 6: Real-Time Streaming](#scenario-6-real-time-streaming)
 10. [Scenario 7: MAUI Cross-Platform](#scenario-7-maui-cross-platform)
@@ -31,7 +31,7 @@ VibeVoice Labs demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B
 - **Scenario 1:** Minimal Python script for learning TTS basics
 - **Scenario 2:** Full-stack web application with Blazor UI, FastAPI backend, and .NET Aspire
 - **Scenario 3:** C# console app running VibeVoice directly via Python Process interop
-- **Scenario 4:** AI agent using Microsoft.Extensions.AI (MEAI) to generate and speak responses
+- **Scenario 4:** Real-time voice conversation with AI (STT + AI brain + TTS) orchestrated by Aspire
 - **Scenario 5:** Batch TTS processing CLI for converting folders of text to WAV files
 - **Scenario 6:** Real-time streaming demonstration with low-latency audio playback
 - **Scenario 7:** Cross-platform MAUI app for Windows, macOS, Android, and iOS
@@ -210,14 +210,14 @@ CSnakes auto-manages the Python environment. No manual Python setup needed.
 
 ---
 
-## Scenario 4: Microsoft.Extensions.AI Agent
+## Scenario 4: Real-Time Voice Conversation
 
-An AI agent that generates text responses and speaks them using Microsoft.Extensions.AI (MEAI).
+A full-stack real-time voice conversation app with push-to-talk, orchestrated by Aspire.
 
 ### Prerequisites
 
-- OpenAI API key (or local LLM via Ollama)
-- Python backend running (from Scenario 2)
+- OpenAI API key
+- Python 3.11+ with backend dependencies installed
 
 ### Quick Start
 
@@ -225,32 +225,27 @@ An AI agent that generates text responses and speaks them using Microsoft.Extens
 # Set your OpenAI API key
 $env:OPENAI_API_KEY = "sk-..."
 
-# Terminal 1: Start the Python backend
-cd src/scenario-02-fullstack/backend
-python -m venv venv
-venv\Scripts\activate
+# Install backend dependencies
+cd src/scenario-04-meai/backend
 pip install -r requirements.txt
-uvicorn main:app --port 5100
 
-# Terminal 2: Run the agent
-cd src/scenario-04-meai
+# Run with Aspire
+cd ../VoiceLabs.ConversationHost
 dotnet run
 ```
 
 ### How It Works
 
-1. **Initialize MEAI IChatClient** with your LLM (OpenAI gpt-4o-mini by default)
-2. **Create SpeechPlugin** that wraps the VibeVoice HTTP API
-3. **Ask a question** — AI generates a text response
-4. **Speak the response** — Send generated text to VibeVoice API
-5. **Play audio** — Automatically play the generated speech
+1. **Open the Aspire dashboard** and click the frontend endpoint
+2. **Hold the push-to-talk button** to speak into your microphone
+3. **Release** — your speech is transcribed by Parakeet (STT)
+4. **AI responds** — OpenAI generates a response, VibeVoice speaks it back
+5. **Continue the conversation** — full chat history is maintained
 
 ### Customization
 
-Edit `Program.cs` to:
-- Use Azure OpenAI, Ollama, or another LLM provider
-- Change the voice selection
-- Modify the agent's prompt
+- Select different voices from the dropdown (Carter, Davis, Emma, Frank, Grace, Mike)
+- Replay AI responses by clicking the 🔊 button on chat bubbles
 
 ---
 

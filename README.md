@@ -57,14 +57,16 @@ src/scenario-03-csharp-simple/
 └── README.md               # Quick start guide
 ```
 
-### Scenario 4: Microsoft.Extensions.AI + VibeVoice
-An AI agent that generates text responses and speaks them using .NET 10 + Microsoft.Extensions.AI (MEAI). **Intermediate level.**
+### Scenario 4: Real-Time Voice Conversation
+A full-stack real-time voice conversation app. Speak into your mic, AI responds with voice — all orchestrated by Aspire. Uses Parakeet (STT) + OpenAI (AI brain) + VibeVoice (TTS). **Advanced level.**
 
 ```
 src/scenario-04-meai/
-├── Program.cs                # MEAI IChatClient agent setup
-├── .csproj                  # Project file with MEAI dependencies
-└── README.md                # Quick start guide
+├── VoiceLabs.ConversationHost/       # Aspire AppHost
+├── backend/                          # Python FastAPI (STT + TTS + AI)
+├── VoiceLabs.ConversationWeb/        # Blazor frontend (mic + audio)
+├── VoiceLabs.ServiceDefaults/
+└── VoiceLabs.slnx                    # Solution file
 ```
 
 ### Scenario 5: Batch TTS Processing
@@ -165,12 +167,23 @@ dotnet run
 
 CSnakes auto-downloads Python and installs dependencies on first run.
 
-### Scenario 4 — Microsoft.Extensions.AI Agent
+### Scenario 4 — Real-Time Voice Conversation
 
 ```bash
 cd src/scenario-04-meai
+
+# Install Python dependencies
+cd backend && pip install -r requirements.txt && cd ..
+
+# Set OpenAI API key
+$env:OPENAI_API_KEY = "sk-..."
+
+# Run with Aspire
+cd VoiceLabs.ConversationHost
 dotnet run
 ```
+
+Open the Aspire dashboard → click the frontend endpoint → push-to-talk to start a conversation!
 
 ### Scenario 5 — Batch TTS Processing
 
@@ -223,10 +236,11 @@ vibevoice-labs/
     │   ├── VoiceLabs.ConsoleApp.csproj
     │   └── README.md
     │
-    ├── scenario-04-meai/                   # AI agent with Microsoft.Extensions.AI
-    │   ├── Program.cs
-    │   ├── VoiceLabs.MEAI.csproj
-    │   └── README.md
+    ├── scenario-04-meai/                   # Real-time voice conversation
+    │   ├── VoiceLabs.ConversationHost/     # Aspire AppHost
+    │   ├── backend/                        # Python FastAPI (STT + TTS + AI)
+    │   ├── VoiceLabs.ConversationWeb/      # Blazor frontend
+    │   └── VoiceLabs.slnx
     │
     ├── scenario-05-batch-processing/       # Batch TTS CLI
     │   ├── batch_tts.py
