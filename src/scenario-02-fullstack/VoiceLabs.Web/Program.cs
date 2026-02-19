@@ -13,7 +13,7 @@ builder.Services.AddRazorComponents()
 // Register TTS service with HTTP client
 builder.Services.AddHttpClient<TtsService>(client =>
 {
-    client.BaseAddress = new Uri("http://backend");
+    client.BaseAddress = new Uri("https://backend");
 });
 
 var app = builder.Build();
