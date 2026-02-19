@@ -30,7 +30,7 @@ This guide walks you through setting up and running VibeVoice Labs.
 
 ## Scenario 1: Simple Python Script
 
-A minimal script to learn VibeVoice TTS basics.
+A minimal script to learn VibeVoice TTS basics, including multilingual support.
 
 ### Step 1: Navigate to Scenario Directory
 
@@ -68,11 +68,17 @@ pip install -r requirements.txt
 
 ### Step 4: Run the Script
 
+**Basic English Demo:**
 ```bash
 python main.py
 ```
 
-### Expected Output
+**Multilingual Demo (Spanish, French, German, and more):**
+```bash
+python main_multilingual.py
+```
+
+### Expected Output (Basic)
 
 ```
 Downloading voice presets (first run only)...
@@ -89,9 +95,34 @@ Audio generated successfully!
    Speaker:  Carter
 ```
 
+### Expected Output (Multilingual)
+
+```
+Checking voice presets...
+  Downloading sp-Spk0_woman.pt...
+
+Loading VibeVoice-Realtime-0.5B model...
+Model loaded successfully on cpu!
+
+Using voice: Spk0_woman (Spanish)
+
+Language: Spanish
+Text: ¡Hola! Esta es una demostración de VibeVoice...
+
+Generating audio...
+Saving audio to output_sp.wav...
+
+✅ Audio generated successfully!
+   File:     output_sp.wav
+   Size:     512.0 KB
+   Duration: 8.5s
+   Language: Spanish
+   Voice:    Spk0_woman
+```
+
 ### Verification
 
-1. Check that `output.wav` was created
+1. Check that `output.wav` (or `output_sp.wav` for multilingual) was created
 2. Play the file with your system audio player
 3. Verify the audio sounds natural
 
@@ -101,6 +132,12 @@ Edit `main.py` to try:
 - Different input text (change the `text` variable)
 - Different voices: uncomment a `SPEAKER_NAME` line (Carter, Davis, Emma, Frank, Grace, Mike)
 - The script auto-downloads voice preset files on first run
+
+Edit `main_multilingual.py` to try:
+- Different languages: change `LANGUAGE` (en, sp, de, fr, it, pt, jp, kr, nl, pl)
+- Different voices: change `VOICE_INDEX` (0 or 1)
+- Custom text: set `CUSTOM_TEXT`
+- Generate all languages: uncomment `generate_all_languages()` at the end
 
 ---
 
@@ -632,7 +669,8 @@ allow_origins=["https://your-domain.com"]
 cd src/scenario-01-simple
 python -m venv venv && venv\Scripts\activate  # Windows
 pip install -r requirements.txt
-python main.py
+python main.py                    # Basic English demo
+python main_multilingual.py       # Multilingual demo (Spanish default)
 ```
 
 ### Scenario 2 Commands

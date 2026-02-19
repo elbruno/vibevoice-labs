@@ -23,7 +23,9 @@ A minimal Python script demonstrating text-to-speech with VibeVoice-Realtime-0.5
 
 ## Usage
 
-Run the script:
+### Basic Demo (English)
+
+Run the basic script:
 ```bash
 python main.py
 ```
@@ -33,6 +35,29 @@ The script will:
 2. Generate speech from the sample text
 3. Save the output as `output.wav`
 
+### Multilingual Demo (Spanish and more)
+
+Run the multilingual script:
+```bash
+python main_multilingual.py
+```
+
+This script demonstrates VibeVoice's multilingual capabilities. By default it generates Spanish audio, but supports 10 languages.
+
+To change the language, edit `main_multilingual.py`:
+```python
+LANGUAGE = "sp"    # Spanish (default)
+LANGUAGE = "en"    # English
+LANGUAGE = "fr"    # French
+LANGUAGE = "de"    # German
+# ... and more
+```
+
+To generate audio in ALL supported languages at once, uncomment the last line:
+```python
+generate_all_languages()
+```
+
 ## Customization
 
 Edit `main.py` to:
@@ -40,9 +65,15 @@ Edit `main.py` to:
 - Try different voices (see the commented examples)
 - Experiment with streaming generation
 
+Edit `main_multilingual.py` to:
+- Change the language (`LANGUAGE` variable)
+- Select different voices (`VOICE_INDEX` variable)
+- Use custom text (`CUSTOM_TEXT` variable)
+- Generate all languages at once
+
 ## Available Voices
 
-English voices included in this scenario:
+### English voices
 
 | Speaker | Gender | Description |
 |---------|--------|-------------|
@@ -53,4 +84,25 @@ English voices included in this scenario:
 | Grace   | Female | American English |
 | Mike    | Male   | American English |
 
-To change voices, edit the `SPEAKER_NAME` variable in `main.py`.
+### Multilingual Voices
+
+VibeVoice supports 10 languages with exploration-mode quality:
+
+| Language   | Code | Voice 1      | Voice 2      |
+|------------|------|--------------|--------------|
+| English    | en   | Carter (M)   | + 5 more     |
+| Spanish    | sp   | Spk0 (F)     | Spk1 (M)     |
+| German     | de   | Spk0 (M)     | Spk1 (F)     |
+| French     | fr   | Spk0 (M)     | Spk1 (F)     |
+| Italian    | it   | Spk0 (F)     | Spk1 (M)     |
+| Portuguese | pt   | Spk0 (F)     | Spk1 (M)     |
+| Japanese   | jp   | Spk0 (M)     | Spk1 (F)     |
+| Korean     | kr   | Spk0 (F)     | Spk1 (M)     |
+| Dutch      | nl   | Spk0 (M)     | Spk1 (F)     |
+| Polish     | pl   | Spk0 (M)     | Spk1 (F)     |
+
+> **Note:** Non-English languages are in "exploration mode" and may have varying quality compared to English output.
+
+To change voices:
+- In `main.py`: edit the `SPEAKER_NAME` variable
+- In `main_multilingual.py`: edit `LANGUAGE` and `VOICE_INDEX` variables
