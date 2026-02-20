@@ -1,7 +1,7 @@
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 websockets>=12.0
-openai>=1.0.0
+ollama>=0.4.0
 vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
 torch>=2.0.0
 soundfile>=0.12.0

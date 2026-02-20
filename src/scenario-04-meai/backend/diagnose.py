@@ -27,7 +27,7 @@ def check_imports():
         ("fastapi", "FastAPI"),
         ("uvicorn", "Uvicorn"),
         ("websockets", "WebSockets"),
-        ("openai", "OpenAI"),
+        ("ollama", "Ollama"),
         ("torch", "PyTorch"),
         ("soundfile", "SoundFile"),
         ("numpy", "NumPy"),
@@ -64,7 +64,8 @@ def check_environment():
     print("Checking environment variables...")
     
     env_vars = {
-        "OPENAI_API_KEY": "Required for chat service",
+        "OLLAMA_MODEL": "Ollama model name (default: llama3.2)",
+        "OLLAMA_BASE_URL": "Ollama server URL (default: http://localhost:11434)",
         "PORT": "Backend port (default: 8000)",
         "WHISPER_MODEL_SIZE": "Whisper model size (default: base.en)",
     }
@@ -72,19 +73,14 @@ def check_environment():
     for var, desc in env_vars.items():
         value = os.environ.get(var)
         if value:
-            # Mask API keys
-            if "KEY" in var or "SECRET" in var:
-                display_value = value[:8] + "..." if len(value) > 8 else "***"
-            else:
-                display_value = value
-            print(f"  ✓ {var} = {display_value}")
+            print(f"  ✓ {var} = {value}")
             print(f"    ({desc})")
         else:
-            if var == "OPENAI_API_KEY":
-                print(f"  ✗ {var} - NOT SET (required for chat)")
+            if var in ["OLLAMA_MODEL", "OLLAMA_BASE_URL"]:
+                print(f"  ℹ {var} - not set (using default)")
             else:
                 print(f"  ℹ {var} - not set (optional)")
-                print(f"    ({desc})")
+            print(f"    ({desc})")
     print()
 
 def check_voices():
@@ -108,6 +104,69 @@ def check_voices():
         print("  ⚠ No voice presets found")
         print("    Voice presets will be downloaded on first run")
     print()
+
+def check_ollama():
+    """Check Ollama installation and available models."""
+    print("Checking Ollama installation...")
+    
+    try:
+        import ollama
+        
+        # Try to connect to Ollama
+        base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        configured_model = os.environ.get("OLLAMA_MODEL", "llama3.2")
+        
+        print(f"  Ollama server: {base_url}")
+        print(f"  Configured model: {configured_model}")
+        
+        try:
+            if base_url != "http://localhost:11434":
+                client = ollama.Client(host=base_url)
+            else:
+                client = ollama.Client()
+            
+            # List available models
+            models_response = client.list()
+            models = models_response.get('models', [])
+            
+            if models:
+                print(f"  ✓ Found {len(models)} Ollama model(s):")
+                for model in models[:5]:  # Show first 5
+                    model_name = model.get('name', 'unknown')
+                    size_gb = model.get('size', 0) / (1024**3)
+                    print(f"    - {model_name} ({size_gb:.1f} GB)")
+                if len(models) > 5:
+                    print(f"    ... and {len(models) - 5} more")
+                
+                # Check if configured model exists
+                model_names = [m['name'].replace(':latest', '') for m in models]
+                configured_base = configured_model.replace(':latest', '')
+                
+                if any(configured_base in name or name in configured_base for name in model_names):
+                    print(f"  ✓ Configured model '{configured_model}' is available")
+                else:
+                    print(f"  ⚠ WARNING: Configured model '{configured_model}' NOT found")
+                    print(f"    To pull it: ollama pull {configured_model}")
+            else:
+                print("  ⚠ No Ollama models found")
+                print(f"    To pull the default model: ollama pull {configured_model}")
+        
+        except Exception as e:
+            print(f"  ✗ Cannot connect to Ollama server at {base_url}")
+            print(f"    Error: {e}")
+            print("\n  To fix:")
+            print("    1. Install Ollama: winget install Ollama.Ollama")
+            print("    2. Start Ollama (should auto-start on Windows)")
+            print(f"    3. Pull a model: ollama pull {configured_model}")
+            return False
+    
+    except ImportError:
+        print("  ✗ Ollama Python package not installed")
+        print("    Run: pip install ollama")
+        return False
+    
+    print()
+    return True
 
 def test_model_loading():
     """Attempt to load the TTS model."""
@@ -133,6 +192,7 @@ def test_health_endpoint():
     try:
         from app.api.routes import health_check
         import asyncio
+        import os
         
         result = asyncio.run(health_check())
         print(f"  Status: {result.status}")
@@ -145,9 +205,12 @@ def test_health_endpoint():
         
         print(f"  Chat Available: {'✓' if result.chat_available else '✗'}")
         if not result.chat_available:
-            print(f"    ⚠ Chat requires OPENAI_API_KEY environment variable")
-            print(f"      Set it with: $env:OPENAI_API_KEY = 'sk-...'")
-            print(f"      (Required for conversation functionality)")
+            print(f"    ⚠ Chat requires Ollama to be running with the configured model")
+            print(f"      Configured model: {os.environ.get('OLLAMA_MODEL', 'llama3.2')}")
+            print(f"      To fix:")
+            print(f"        1. Install Ollama: winget install Ollama.Ollama")
+            print(f"        2. Pull model: ollama pull {os.environ.get('OLLAMA_MODEL', 'llama3.2')}")
+            print(f"        3. Verify: ollama list")
         
         # Overall assessment
         if result.model_loaded and result.chat_available:
@@ -186,6 +249,18 @@ def main():
     check_environment()
     check_voices()
     
+    # Check Ollama before proceeding
+    ollama_ok = check_ollama()
+    
+    if not ollama_ok:
+        print("⚠ Ollama is not ready. Please install and configure Ollama first.")
+        print("\nQuick setup:")
+        print("  1. Install: winget install Ollama.Ollama")
+        print("  2. Pull model: ollama pull llama3.2")
+        print("  3. Verify: ollama list")
+        print()
+        return
+    
     # Only test model loading if user confirms (can be slow)
     response = input("Test TTS model loading? This may take 1-2 minutes. (y/N): ")
     if response.lower() in ('y', 'yes'):
@@ -205,12 +280,14 @@ def main():
             if not model_ok:
                 print("  - TTS model failed to load")
             
-            # Check for missing OPENAI_API_KEY
-            import os
-            if not os.environ.get("OPENAI_API_KEY"):
-                print("  - OPENAI_API_KEY not set (required for chat)")
+            # Check for Ollama availability
+            from app.services.chat_service import ChatService
+            if not ChatService.is_available():
+                print("  - Ollama chat service not available")
                 print("\nTo fix:")
-                print("  $env:OPENAI_API_KEY = 'sk-your-api-key-here'")
+                print("  1. Install Ollama: winget install Ollama.Ollama")
+                print("  2. Pull model: ollama pull llama3.2")
+                print("  3. Verify: ollama list")
         
         print("=" * 60)
     else:

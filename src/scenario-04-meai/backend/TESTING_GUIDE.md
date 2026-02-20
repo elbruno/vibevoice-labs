@@ -50,16 +50,25 @@ pip install -r requirements.txt
 
 This may take 5-10 minutes as it downloads the VibeVoice model and dependencies.
 
-### Step 4: Set Environment Variables
+### Step 4: Install and Configure Ollama
 
-The backend needs an OpenAI API key for the chat service:
+The backend uses Ollama for local LLM inference (no API keys needed!):
 
 ```powershell
-$env:OPENAI_API_KEY = "sk-your-api-key-here"
+# Install Ollama
+winget install Ollama.Ollama
+
+# Pull the default model (llama3.2)
+ollama pull llama3.2
+
+# Verify it's available
+ollama list
 ```
 
-Optional: Set other environment variables
+Optional: Set environment variables to customize
 ```powershell
+$env:OLLAMA_MODEL = "llama3.2"  # Change model if desired
+$env:OLLAMA_BASE_URL = "http://localhost:11434"  # Default Ollama URL
 $env:PORT = "8000"  # Default port
 $env:WHISPER_MODEL_SIZE = "base.en"  # For STT (if using faster-whisper)
 ```
@@ -178,9 +187,10 @@ Once standalone testing works, you can run with Aspire:
 ```powershell
 cd d:\elbruno\vibevoice-labs\src\scenario-04-meai
 
-# Make sure backend dependencies are installed in backend/.venv
-# Set environment variable for Aspire
-$env:OPENAI_API_KEY = "sk-your-api-key-here"
+# Make sure:
+# 1. Backend dependencies are installed in backend/.venv
+# 2. Ollama is installed and running
+# 3. llama3.2 model is pulled (or your configured model)
 
 # Run Aspire
 dotnet run --project VoiceLabs.ConversationHost
@@ -228,9 +238,10 @@ Check:
 **Symptoms:** Health check shows `chat_available: false`
 
 **Solutions:**
-1. Set OPENAI_API_KEY environment variable
-2. Verify API key is valid
-3. Check internet connection
+1. Install Ollama: `winget install Ollama.Ollama`
+2. Pull the model: `ollama pull llama3.2`
+3. Verify Ollama is running: `ollama list`
+4. Check Ollama server: `curl http://localhost:11434/api/tags`
 
 ### Error: "STT service unavailable"
 

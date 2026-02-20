@@ -147,9 +147,16 @@ pip install -r requirements.txt
 4. Verify Aspire service discovery is working (check appsettings.json)
 
 ### Issue: "Chat service unavailable"
-**Solution**: Set OPENAI_API_KEY environment variable:
+**Solution**: Install and configure Ollama:
 ```powershell
-$env:OPENAI_API_KEY = "sk-..."
+# Install Ollama
+winget install Ollama.Ollama
+
+# Pull the model
+ollama pull llama3.2
+
+# Verify
+ollama list
 ```
 
 ## Files Modified

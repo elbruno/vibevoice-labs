@@ -2,29 +2,54 @@
 
 ## Issue: "Chat Available: ✗"
 
-**Cause:** OPENAI_API_KEY environment variable is not set
+**Cause:** Ollama is not running or the configured model is not available
 
-**Fix:**
+**Fix - Install and Run Ollama:**
+
+**Step 1: Install Ollama**
 ```powershell
-# Set the environment variable for the current session
-$env:OPENAI_API_KEY = "sk-your-actual-api-key-here"
+# Install Ollama using winget
+winget install Ollama.Ollama
 
-# Verify it's set
-echo $env:OPENAI_API_KEY
+# Or download from https://ollama.ai/
 ```
 
-**To make it permanent (optional):**
-1. Open Windows Settings → System → About → Advanced system settings
-2. Click "Environment Variables"
-3. Under "User variables", click "New"
-   - Variable name: `OPENAI_API_KEY`
-   - Variable value: `sk-your-actual-api-key-here`
-4. Click OK
+**Step 2: Pull the default model**
+```powershell
+# Pull llama3.2 (default model)
+ollama pull llama3.2
 
-**Get an API key:**
-- Sign up at https://platform.openai.com/
-- Go to API Keys section
-- Create a new key (starts with `sk-`)
+# Verify it's available
+ollama list
+```
+
+**Step 3: Verify Ollama is running**
+```powershell
+# Ollama runs automatically on Windows
+# Test it with:
+ollama list
+
+# Or check if the server is responding:
+curl http://localhost:11434/api/tags
+```
+
+**To use a different model:**
+```powershell
+# Set environment variable before starting backend
+$env:OLLAMA_MODEL = "llama3.1"
+
+# Or configure in Aspire appsettings.json:
+# "Backend": { "OllamaModel": "llama3.1" }
+
+# Then pull the model:
+ollama pull llama3.1
+```
+
+**Popular Ollama models:**
+- `llama3.2` - Default, good balance (2GB)
+- `llama3.1` - Larger, more capable (4.7GB)
+- `phi3` - Smaller, faster (2.3GB)
+- `mistral` - Fast and capable (4.1GB)
 
 ---
 
@@ -72,19 +97,20 @@ Testing health endpoint...
 ## Minimal Configuration (Chat Only)
 
 If you just want to test the conversation flow (without voice input), you only need:
+- ✓ Ollama installed and running
+- ✓ llama3.2 model pulled (or configured model)
 - ✓ TTS Model loaded
-- ✓ OPENAI_API_KEY set
 - ✗ STT is optional (skip voice input, use text)
 
-Set the API key and you're good to go!
+Install Ollama and pull the model, then you're good to go!
 
 ---
 
 ## Full Configuration (Voice + Chat)
 
 For the complete voice conversation experience:
+- ✓ Ollama installed and running with llama3.2
 - ✓ TTS Model loaded
-- ✓ OPENAI_API_KEY set
 - ✓ STT package installed (faster-whisper or nemo)
 
 ---
@@ -92,16 +118,20 @@ For the complete voice conversation experience:
 ## Quick Test After Fixing
 
 ```powershell
-# 1. Set the API key
-$env:OPENAI_API_KEY = "sk-..."
+# 1. Install Ollama and pull model
+winget install Ollama.Ollama
+ollama pull llama3.2
 
-# 2. (Optional) Install STT if you want voice input
+# 2. Verify Ollama is working
+ollama list
+
+# 3. (Optional) Install STT if you want voice input
 pip install faster-whisper
 
-# 3. Run diagnostics to verify
+# 4. Run diagnostics to verify
 python diagnose.py
 
-# 4. Start the backend
+# 5. Start the backend
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -115,4 +145,4 @@ python diagnose.py
 # Answer 'y' when prompted to test TTS model loading
 ```
 
-This will show you exactly what's missing or failing.
+This will show you exactly what's missing or failing, including Ollama connectivity and model availability.

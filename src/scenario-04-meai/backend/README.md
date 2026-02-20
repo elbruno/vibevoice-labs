@@ -1,14 +1,33 @@
 # Scenario 4 — Conversation Backend
 
-Real-time voice conversation backend: **Speech-to-Text → AI Chat → Text-to-Speech** over WebSocket.
+Real-time voice conversation backend: **Speech-to-Text → AI Chat (Ollama) → Text-to-Speech** over WebSocket.
 
 ## Architecture
 
 ```
-Client (mic audio) → WebSocket → STT (Parakeet/Whisper) → OpenAI Chat → TTS (VibeVoice) → WebSocket → Client (speaker)
+Client (mic audio) → WebSocket → STT (Parakeet/Whisper) → Ollama LLM → TTS (VibeVoice) → WebSocket → Client (speaker)
 ```
 
 ## Setup
+
+### Prerequisites
+
+1. **Install Ollama** (for local LLM inference)
+   ```bash
+   winget install Ollama.Ollama
+   ```
+
+2. **Pull the default model**
+   ```bash
+   ollama pull llama3.2
+   ```
+
+3. **Verify Ollama is running**
+   ```bash
+   ollama list
+   ```
+
+### Install Python Dependencies
 
 ```bash
 cd src/scenario-04-meai/backend
@@ -17,9 +36,12 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Set your OpenAI API key:
+### Optional: Configure Ollama Model
+
 ```bash
-set OPENAI_API_KEY=sk-...
+# Use a different model (optional)
+set OLLAMA_MODEL=llama3.1
+ollama pull llama3.1
 ```
 
 ## Run
@@ -28,7 +50,16 @@ set OPENAI_API_KEY=sk-...
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Or with Aspire (port set via `PORT` env var).
+Or with Aspire (configuration in `appsettings.json`).
+
+## Configuration
+
+| Environment Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8000` | Backend server port |
+| `OLLAMA_MODEL` | `llama3.2` | Ollama model to use |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `WHISPER_MODEL_SIZE` | `base.en` | Whisper model size (if using STT) |
 
 ## Endpoints
 
