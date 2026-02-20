@@ -1,0 +1,614 @@
+@using VoiceLabs.Web.Services
+
+<div class="backend-loading-overlay @(isVisible ? "visible" : "hidden")">
+    <div class="loading-container">
+        <div class="loading-content">
+            <!-- Normal Loading State -->
+            @if (CurrentState?.State != "ERROR")
+            {
+                <div class="spinner-large"></div>
+                
+                <h2 class="loading-title">@StateDescription</h2>
+                
+                <div class="progress-section">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: @(Progress)%"></div>
+                    </div>
+                    <div class="progress-text">@Progress%</div>
+                </div>
+
+                @if (CurrentState != null && CurrentState.Services != null)
+                {
+                    <div class="services-status">
+                        @foreach (var service in CurrentState.Services)
+                        {
+                            <div class="service-item @(service.Value.Ready ? "ready" : service.Value.Status == "error" ? "error" : "loading")">
+                                <span class="service-icon">
+                                    @if (service.Value.Ready)
+                                    {
+                                        <span>✓</span>
+                                    }
+                                    else if (service.Value.Status == "error")
+                                    {
+                                        <span>✗</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="spinner-small"></span>
+                                    }
+                                </span>
+                                <span class="service-name">@(service.Key.ToUpper())</span>
+                                @if (service.Value.WarmupTimeMs.HasValue)
+                                {
+                                    <span class="service-time">@(service.Value.WarmupTimeMs.Value.ToString("F0"))ms</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                <div class="loading-tips">
+                    <p class="tip-title">💡 First time? Models are loading...</p>
+                    <p class="tip-text">This usually takes 15-30 seconds on first startup</p>
+                </div>
+            }
+            else
+            {
+                <!-- Error State -->
+                <div class="error-icon">❌</div>
+                
+                <h2 class="error-title">Backend Initialization Failed</h2>
+                
+                <p class="error-description">
+                    The backend services failed to initialize. 
+                    Check the issues below and try again.
+                </p>
+                
+                @if (CurrentState?.Services != null)
+                {
+                    <div class="error-services">
+                        @foreach (var service in CurrentState.Services.Where(s => s.Value.Status == "error"))
+                        {
+                            <div class="error-service-item">
+                                <span class="error-service-icon">✗</span>
+                                <div class="error-service-details">
+                                    <div class="error-service-name">@(service.Key.ToUpper())</div>
+                                    <div class="error-service-message">
+                                        @if (!string.IsNullOrEmpty(service.Value.Error))
+                                        {
+                                            <span>@service.Value.Error</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                
+                @if (CurrentState?.Errors.Count > 0)
+                {
+                    <div class="error-details-section">
+                        <div class="error-details-title">Details:</div>
+                        @foreach (var error in CurrentState.Errors.Take(3))
+                        {
+                            <div class="error-detail-item">⚠️ @error</div>
+                        }
+                    </div>
+                }
+                
+                <!-- Troubleshooting Tips -->
+                <div class="troubleshooting-section">
+                    <div class="troubleshooting-title">🔧 Troubleshooting Tips</div>
+                    <ul class="troubleshooting-list">
+                        @if (HasOllamaError)
+                        {
+                            <li>Start Ollama: <code>ollama serve</code></li>
+                            <li>Pull model: <code>ollama pull llama3.2</code></li>
+                            <li>Check status: <code>ollama list</code></li>
+                        }
+                        @if (HasTTSError)
+                        {
+                            <li>Check system memory for TTS model loading</li>
+                            <li>Ensure GPU drivers are up to date</li>
+                        }
+                        @if (HasSTTError)
+                        {
+                            <li>STT is optional - Chat should still work</li>
+                            <li>Install speech recognition dependencies</li>
+                        }
+                        <li>Check backend logs for details</li>
+                        <li>Verify all services are properly configured</li>
+                    </ul>
+                </div>
+                
+                <!-- Retry Button -->
+                <div class="error-actions">
+                    <button class="retry-btn" @onclick="OnRetry">
+                        <span>🔄</span>
+                        <span>Try Again</span>
+                    </button>
+                    <p class="error-timeout">
+                        Retrying automatically in <span class="countdown">@retryCountdown</span>s...
+                    </p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; } = true;
+
+    [Parameter]
+    public BackendReadyState? CurrentState { get; set; }
+
+    [Parameter]
+    public EventCallback<BackendReadyState?> OnStateChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnRetryClicked { get; set; }
+
+    private bool isVisible = true;
+    private int Progress => CurrentState?.ProgressPercent ?? 0;
+    private string StateDescription => CurrentState?.StateDescription ?? "Connecting...";
+    
+    private int retryCountdown = 5;
+    private System.Threading.CancellationTokenSource? retryTokenSource;
+    
+    private bool HasOllamaError => CurrentState?.Errors.Any(e => e.Contains("Ollama", StringComparison.OrdinalIgnoreCase)) ?? false;
+    private bool HasTTSError => CurrentState?.Services?.Values.Any(s => s.Status == "error" && s.Ready == false) ?? false;
+    private bool HasSTTError => CurrentState?.Services?.ContainsKey("stt") == true && CurrentState.Services["stt"].Status == "error";
+
+    protected override void OnParametersSet()
+    {
+        isVisible = IsVisible;
+        
+        // If state changed to error, start retry countdown
+        if (CurrentState?.State == "ERROR" && retryTokenSource == null)
+        {
+            StartRetryCountdown();
+        }
+    }
+
+    private void StartRetryCountdown()
+    {
+        retryTokenSource = new System.Threading.CancellationTokenSource();
+        retryCountdown = 5;
+        _ = RetryCountdownLoop(retryTokenSource.Token);
+    }
+
+    private async Task RetryCountdownLoop(System.Threading.CancellationToken token)
+    {
+        try
+        {
+            while (retryCountdown > 0 && !token.IsCancellationRequested)
+            {
+                await Task.Delay(1000, token);
+                retryCountdown--;
+                await InvokeAsync(StateHasChanged);
+            }
+            
+            // Auto-retry after countdown
+            if (!token.IsCancellationRequested)
+            {
+                await OnRetry();
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // Retry was cancelled
+        }
+    }
+
+    private async Task OnRetry()
+    {
+        retryTokenSource?.Cancel();
+        retryTokenSource = null;
+        
+        // Trigger parent retry
+        await OnRetryClicked.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        retryTokenSource?.Cancel();
+        retryTokenSource?.Dispose();
+    }
+}
+
+<style>
+.backend-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 10, 20, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.backend-loading-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.loading-content {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 40px 50px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 90%;
+    animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.spinner-large {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.loading-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 20px 0;
+    letter-spacing: 0.5px;
+}
+
+.progress-section {
+    margin: 30px 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 10px;
+    animation: pulse 0.5s ease-in-out;
+    transition: width 0.3s ease;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
+
+.progress-text {
+    font-size: 14px;
+    color: #a0a0a0;
+    font-weight: 500;
+}
+
+.services-status {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 25px 0;
+    text-align: left;
+}
+
+.service-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    font-size: 13px;
+    color: #d0d0d0;
+    transition: all 0.3s ease;
+}
+
+.service-item.ready {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.service-item.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.service-item.loading {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+.service-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    font-weight: bold;
+}
+
+.service-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.service-time {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.errors-section {
+    margin: 20px 0;
+    text-align: left;
+    padding: 15px;
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+    border-radius: 8px;
+}
+
+.error-title {
+    font-weight: 600;
+    color: #ef4444;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.error-item {
+    font-size: 12px;
+    color: #fca5a5;
+    margin: 4px 0;
+}
+
+.loading-tips {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tip-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fbbf24;
+    margin: 0 0 5px 0;
+}
+
+.tip-text {
+    font-size: 12px;
+    color: #a0a0a0;
+    margin: 0;
+}
+
+/* Error State Styles */
+.error-icon {
+    font-size: 60px;
+    margin: 0 auto 20px;
+    animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+.error-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #ef4444;
+    margin: 20px 0 10px 0;
+}
+
+.error-description {
+    font-size: 14px;
+    color: #d0d0d0;
+    margin: 10px 0 20px 0;
+    line-height: 1.5;
+}
+
+.error-services {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.error-service-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+    border-radius: 8px;
+}
+
+.error-service-icon {
+    font-size: 18px;
+    color: #ef4444;
+    flex-shrink: 0;
+}
+
+.error-service-details {
+    flex: 1;
+    text-align: left;
+}
+
+.error-service-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ef4444;
+    margin-bottom: 4px;
+}
+
+.error-service-message {
+    font-size: 12px;
+    color: #fca5a5;
+}
+
+.error-details-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(239, 68, 68, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    text-align: left;
+}
+
+.error-details-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #fbbf24;
+    margin-bottom: 8px;
+}
+
+.error-detail-item {
+    font-size: 11px;
+    color: #fca5a5;
+    margin: 4px 0;
+}
+
+.troubleshooting-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(59, 130, 246, 0.05);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    text-align: left;
+}
+
+.troubleshooting-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3b82f6;
+    margin-bottom: 10px;
+}
+
+.troubleshooting-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.troubleshooting-list li {
+    font-size: 12px;
+    color: #a0a0a0;
+    margin: 6px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.troubleshooting-list li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: #3b82f6;
+}
+
+.troubleshooting-list code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: #5cf96e;
+    font-size: 11px;
+}
+
+.error-actions {
+    margin: 25px 0 0 0;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.retry-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto 12px;
+    transition: all 0.3s ease;
+}
+
+.retry-btn:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.retry-btn:active {
+    transform: translateY(0);
+}
+
+.error-timeout {
+    font-size: 12px;
+    color: #a0a0a0;
+    margin: 0;
+}
+
+.countdown {
+    color: #fbbf24;
+    font-weight: 600;
+}
+
+.loading-content {
+    max-width: 500px;
+}
+</style>

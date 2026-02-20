@@ -89,8 +89,24 @@ class ChatService:
                 client = ollama.Client()
             
             # Check if the model is available
-            models = client.list()
-            model_names = [m['name'].replace(':latest', '') for m in models.get('models', [])]
+            response = client.list()
+            
+            # Handle both old and new Ollama API response formats
+            models_list = response.get('models', []) if isinstance(response, dict) else []
+            
+            if not models_list:
+                logger.warning(f"Ollama returned empty model list or unexpected response: {response}")
+                return False
+            
+            # Extract model names safely
+            model_names = []
+            for m in models_list:
+                if isinstance(m, dict) and 'name' in m:
+                    model_names.append(m['name'].replace(':latest', ''))
+            
+            if not model_names:
+                logger.warning(f"Could not parse Ollama models response: {models_list}")
+                return False
             
             # Check if our model is in the list (with or without :latest tag)
             model_base = model.replace(':latest', '')

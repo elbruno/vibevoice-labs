@@ -1,10 +1,21 @@
 ﻿@page "/"
 @using VoiceLabs.Web.Services
 @inject TtsService TtsService
+@inject BackendReadinessService BackendReadinessService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>VoiceLabs TTS</PageTitle>
+
+<!-- Backend Loading Screen -->
+<BackendLoadingScreen 
+    IsVisible="@isWaitingForBackend" 
+    CurrentState="@currentBackendState"
+    OnStateChanged="@HandleStateChanged"
+    OnRetryClicked="@HandleRetry" />
+
+<!-- Main Content (hidden while waiting) -->
+<div @attributes="new Dictionary<string, object> { { \"style\", isWaitingForBackend ? \"display: none;\" : \"\" } }">
 
 <div class="tts-container">
     <header class="hero-section">
@@ -137,6 +148,7 @@
         <p>Powered by <strong>VibeVoice-Realtime-0.5B</strong> • Built with .NET Aspire</p>
     </footer>
 </div>
+</div> <!-- End of main content div that's hidden during loading -->
 
 @code {
     private string textInput = string.Empty;
@@ -147,6 +159,10 @@
     private string? audioUrl = null;
     private byte[]? audioData = null;
     private string errorMessage = string.Empty;
+
+    // Backend readiness state
+    private bool isWaitingForBackend = true;
+    private BackendReadyState? currentBackendState;
 
     private readonly List<SampleText> sampleTexts = new()
     {
@@ -160,7 +176,47 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadVoicesAsync();
+        // Wait for backend to be ready before loading anything
+        await WaitForBackendReady();
+        
+        // Once backend is ready, load voices
+        if (!isWaitingForBackend)
+        {
+            await LoadVoicesAsync();
+        }
+    }
+
+    private async Task WaitForBackendReady()
+    {
+        var ready = await BackendReadinessService.WaitForReadyAsync(
+            maxWaitSeconds: 60,
+            onProgressUpdate: async (state) =>
+            {
+                currentBackendState = state;
+                await InvokeAsync(StateHasChanged);
+            }
+        );
+
+        isWaitingForBackend = !ready;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleStateChanged(BackendReadyState? state)
+    {
+        currentBackendState = state;
+        // Component handles its own state updates
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleRetry()
+    {
+        // Reset waiting state and try again
+        isWaitingForBackend = true;
+        currentBackendState = null;
+        await InvokeAsync(StateHasChanged);
+        
+        // Retry waiting for backend
+        await WaitForBackendReady();
     }
 
     private async Task LoadVoicesAsync()

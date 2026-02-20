@@ -16,6 +16,12 @@ builder.Services.AddHttpClient<TtsService>(client =>
     client.BaseAddress = new Uri("http://backend");
 });
 
+// Register Backend Readiness service
+builder.Services.AddHttpClient<BackendReadinessService>(client =>
+{
+    client.BaseAddress = new Uri("http://backend");
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

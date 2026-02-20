@@ -176,7 +176,31 @@ class TTSService:
         """Convert audio tensor/array to WAV bytes."""
         if hasattr(audio, "cpu"):
             audio = audio.cpu().numpy()
+        
+        # Ensure audio is proper shape (channels, samples)
+        if isinstance(audio, np.ndarray):
+            # Handle case where we get (1, samples) - squeeze to (samples,) for mono
+            if len(audio.shape) == 2 and audio.shape[0] == 1:
+                audio = audio.squeeze(0)
+            
+            # Ensure float format for soundfile
+            if audio.dtype not in [np.float32, np.float64]:
+                audio = audio.astype(np.float32)
+            
+            # Normalize if needed
+            max_val = np.abs(audio).max()
+            if max_val > 1.0:
+                audio = audio / (max_val + 1e-8)
+        
         buffer = io.BytesIO()
-        sf.write(buffer, audio, sample_rate, format="WAV")
-        buffer.seek(0)
-        return buffer.read()
+        try:
+            sf.write(buffer, audio, sample_rate, format="WAV")
+            buffer.seek(0)
+            return buffer.read()
+        except Exception as e:
+            logger.error(f"Failed to write audio to WAV: {e}. Audio shape: {audio.shape if hasattr(audio, 'shape') else 'unknown'}")
+            # Return empty WAV as fallback
+            buffer = io.BytesIO()
+            sf.write(buffer, np.zeros(sample_rate), sample_rate, format="WAV")
+            buffer.seek(0)
+            return buffer.read()

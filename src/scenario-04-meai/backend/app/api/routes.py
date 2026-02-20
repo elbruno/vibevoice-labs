@@ -10,6 +10,7 @@ from app.models.schemas import VoicesResponse, HealthResponse
 from app.services.tts_service import TTSService
 from app.services.stt_service import STTService
 from app.services.chat_service import ChatService
+from app.services.ready_state import ready_state
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,25 @@ async def health_check():
             stt_available=False,
             chat_available=False,
         )
+
+
+@router.get("/ready")
+async def check_ready():
+    """
+    Readiness check endpoint.
+    Returns whether backend is ready to accept requests.
+    
+    Unlike /health which checks if services CAN work,
+    /ready checks if services ARE LOADED and ready NOW.
+    
+    Use this endpoint to:
+    - Wait for startup to complete before connecting
+    - Show loading progress to users
+    - Determine when to send first request
+    """
+    state_dict = ready_state.to_dict()
+    logger.debug(f"Ready check: {state_dict['ready']}, state: {state_dict['state']}")
+    return state_dict
 
 
 @router.post("/warmup")
