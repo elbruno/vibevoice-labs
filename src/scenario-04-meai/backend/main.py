@@ -13,6 +13,7 @@ Run with: uvicorn main:app --host 0.0.0.0 --port 8000
 
 import os
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,10 +27,41 @@ from app.services.stt_service import STTService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager - handles startup and shutdown."""
+    logger.info("Starting application...")
+    
+    # Startup: Initialize services
+    logger.info("Initializing TTS service...")
+    try:
+        TTSService.initialize()
+        logger.info("TTS service initialized successfully")
+    except Exception as e:
+        logger.error(f"TTS initialization failed: {e}", exc_info=True)
+        # Don't raise - let the app start but health check will report unhealthy
+
+    logger.info("Initializing STT service...")
+    try:
+        STTService.initialize()
+        logger.info("STT service initialized successfully")
+    except Exception as e:
+        logger.warning(f"STT initialization failed (will not be available): {e}", exc_info=True)
+    
+    logger.info("Application startup complete")
+    
+    yield  # Application runs
+    
+    # Shutdown: cleanup if needed
+    logger.info("Shutting down application...")
+
+
 app = FastAPI(
     title="VibeVoice Conversation API",
     description="Real-time voice conversation: STT → Chat → TTS",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS middleware for frontend integration
@@ -50,19 +82,6 @@ app.include_router(test_router, prefix="/api/test")
 @app.websocket("/ws/conversation")
 async def websocket_conversation(websocket: WebSocket):
     await handle_conversation(websocket)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup."""
-    logger.info("Initializing TTS service...")
-    TTSService.initialize()
-
-    logger.info("Initializing STT service...")
-    try:
-        STTService.initialize()
-    except Exception as e:
-        logger.warning(f"STT initialization failed (will not be available): {e}")
 
 
 @app.get("/")
