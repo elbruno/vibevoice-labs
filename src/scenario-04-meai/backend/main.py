@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api.test_routes import router as test_router
 from app.api.websocket_handler import handle_conversation
 from app.services.tts_service import TTSService
 from app.services.stt_service import STTService
@@ -42,6 +43,7 @@ app.add_middleware(
 
 # REST API routes
 app.include_router(router, prefix="/api")
+app.include_router(test_router, prefix="/api/test")
 
 
 # WebSocket endpoint
@@ -65,7 +67,19 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    return {"message": "VibeVoice Conversation API", "docs": "/docs"}
+    return {
+        "message": "VibeVoice Conversation API is running",
+        "status": "online",
+        "endpoints": {
+            "docs": "/docs",
+            "health": "/api/health",
+            "voices": "/api/voices",
+            "test_ping": "/api/test/ping",
+            "test_echo": "/api/test/echo",
+            "test_headers": "/api/test/headers",
+            "websocket": "/ws/conversation"
+        }
+    }
 
 
 if __name__ == "__main__":

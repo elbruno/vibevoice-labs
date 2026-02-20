@@ -23,7 +23,18 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            http.AddStandardResilienceHandler();
+            //http.AddStandardResilienceHandler();
+
+            http.AddStandardResilienceHandler(config =>
+            {
+                TimeSpan timeSpan = TimeSpan.FromMinutes(15);
+                config.AttemptTimeout.Timeout = timeSpan;
+                config.CircuitBreaker.SamplingDuration = timeSpan * 2;
+                config.TotalRequestTimeout.Timeout = timeSpan * 3;
+                config.Retry.MaxRetryAttempts = 1;
+            });
+
+
             http.AddServiceDiscovery();
         });
 

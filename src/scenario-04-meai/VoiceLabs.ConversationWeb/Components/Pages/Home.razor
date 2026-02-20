@@ -10,9 +10,16 @@
 
 <div class="conversation-container">
     <div class="status-bar">
-        <div class="connection-status @(isConnected ? "connected" : "disconnected")">
-            <span class="status-dot"></span>
-            @(isConnected ? "Connected" : "Disconnected")
+        <div class="connection-status @(isConnected ? "connected" : (isConnecting ? "connecting" : "disconnected"))">
+            @if (isConnecting)
+            {
+                <span class="spinner"></span>
+            }
+            else
+            {
+                <span class="status-dot"></span>
+            }
+            @(isConnected ? "Connected" : (isConnecting ? "Connecting..." : "Disconnected"))
         </div>
         <div class="voice-selector">
             <label>Voice:</label>
@@ -58,6 +65,10 @@
                 disabled="@(!isConnected)">
             <div class="mic-icon">🎤</div>
             <div class="mic-label">@(isRecording ? "Release to Send" : "Hold to Talk")</div>
+        </button>
+        
+        <button class="test-btn" @onclick="TestConnection">
+            🔌 Test Connection
         </button>
     </div>
 
@@ -108,12 +119,43 @@
         margin-bottom: 2px;
         word-break: break-all;
     }
+    .connection-status.connecting {
+        color: #ffcc00;
+    }
+    .spinner {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border: 2px solid rgba(255, 204, 0, 0.3);
+        border-radius: 50%;
+        border-top-color: #ffcc00;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 8px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .test-btn {
+        margin-left: 15px;
+        padding: 10px 20px;
+        background: #333;
+        color: white;
+        border: 1px solid #555;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background 0.2s;
+    }
+    .test-btn:hover {
+        background: #444;
+    }
 </style>
 
 @code {
     private ClientWebSocket? webSocket;
     private CancellationTokenSource? cts;
     private bool isConnected;
+    private bool isConnecting;
     private bool isRecording;
     private string? statusText;
     private string? errorMessage;
@@ -155,8 +197,73 @@
         await JS.InvokeVoidAsync("eval", "document.querySelector('.chat-area')?.scrollTo(0, document.querySelector('.chat-area')?.scrollHeight)");
     }
 
+    private string GetBackendHttpUrl()
+    {
+        var backendUrl = "http://localhost:8000";
+        var backendConfig = Configuration.GetSection("services:backend").GetChildren();
+        foreach (var section in backendConfig)
+        {
+            var url = section.GetChildren().FirstOrDefault()?.Value;
+            if (url != null && url.StartsWith("http://"))
+            {
+                backendUrl = url.TrimEnd('/');
+                break;
+            }
+        }
+        return backendUrl;
+    }
+
+    private async Task TestConnection()
+    {
+        LogDebug("--- Starting HTTP Connection Test ---");
+        try
+        {
+            var backendUrl = GetBackendHttpUrl();
+            LogDebug($"Testing HTTP connection to: {backendUrl}");
+            
+            // Use the injected HttpClientFactory to get the client configured with ServiceDefaults
+            var client = HttpClientFactory.CreateClient("backend");
+
+            // Test 1: Root endpoint
+            LogDebug("1. Testing Root Endpoint (/)");
+            var rootResponse = await client.GetAsync("/");
+            LogDebug($"   Status: {(int)rootResponse.StatusCode} {rootResponse.StatusCode}");
+            var rootContent = await rootResponse.Content.ReadAsStringAsync();
+            LogDebug($"   Response: {rootContent}");
+
+            // Test 2: Ping endpoint
+            LogDebug("2. Testing Ping Endpoint (/api/test/ping)");
+            var pingResponse = await client.GetAsync("/api/test/ping");
+            LogDebug($"   Status: {(int)pingResponse.StatusCode} {pingResponse.StatusCode}");
+            var pingContent = await pingResponse.Content.ReadAsStringAsync();
+            LogDebug($"   Response: {pingContent}");
+
+            // Test 3: Health endpoint
+            LogDebug("3. Testing Health Endpoint (/api/health)");
+            var healthResponse = await client.GetAsync("/api/health");
+            LogDebug($"   Status: {(int)healthResponse.StatusCode} {healthResponse.StatusCode}");
+            var healthContent = await healthResponse.Content.ReadAsStringAsync();
+            LogDebug($"   Response: {healthContent}");
+
+            LogDebug("--- HTTP Connection Test Complete ---");
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"HTTP Test Failed: {ex.GetType().Name} - {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                LogDebug($"Inner exception: {ex.InnerException.Message}");
+            }
+        }
+    }
+
     private async Task ConnectWebSocket()
     {
+        if (isConnected || isConnecting) return;
+        
+        isConnecting = true;
+        await InvokeAsync(StateHasChanged);
+        
         try
         {
             LogDebug("Resolving backend URL from configuration...");
@@ -166,22 +273,7 @@
             
             // The backend has two endpoints: https and http.
             // We need to find the http one to avoid SSL certificate issues with wss://
-            var backendUrl = "http://localhost:8000";
-            
-            // Aspire injects configuration keys like:
-            // services:backend:http:0 = http://localhost:56707
-            // services:backend:https:0 = https://localhost:56708
-            // Let's iterate through the configuration to find the http endpoint
-            var backendConfig = Configuration.GetSection("services:backend").GetChildren();
-            foreach (var section in backendConfig)
-            {
-                var url = section.GetChildren().FirstOrDefault()?.Value;
-                if (url != null && url.StartsWith("http://"))
-                {
-                    backendUrl = url.TrimEnd('/');
-                    break;
-                }
-            }
+            var backendUrl = GetBackendHttpUrl();
             
             LogDebug($"Resolved backend URL: {backendUrl}");
 
@@ -192,8 +284,14 @@
             cts = new CancellationTokenSource();
 
             LogDebug("Initiating WebSocket connection...");
-            await webSocket.ConnectAsync(new Uri($"{wsUrl}/ws/conversation"), cts.Token);
+            
+            // Add a timeout to the WebSocket connection attempt
+            using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+            connectCts.CancelAfter(TimeSpan.FromSeconds(10));
+            
+            await webSocket.ConnectAsync(new Uri($"{wsUrl}/ws/conversation"), connectCts.Token);
             isConnected = true;
+            isConnecting = false;
             LogDebug("WebSocket connected successfully.");
             await InvokeAsync(StateHasChanged);
 
@@ -201,6 +299,7 @@
         }
         catch (Exception ex)
         {
+            isConnecting = false;
             errorMessage = $"Connection failed: {ex.Message}";
             LogDebug($"Connection failed: {ex.GetType().Name} - {ex.Message}");
             if (ex.InnerException != null)
