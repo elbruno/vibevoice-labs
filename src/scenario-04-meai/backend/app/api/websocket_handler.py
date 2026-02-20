@@ -35,10 +35,10 @@ async def handle_conversation(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket conversation connected")
 
-    chat_service = ChatService()
     audio_buffer = bytearray()
 
     try:
+        chat_service = ChatService()
         while True:
             message = await websocket.receive()
 
