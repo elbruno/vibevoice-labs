@@ -4,6 +4,7 @@
 @using System.Text
 @using System.Text.Json
 @inject IHttpClientFactory HttpClientFactory
+@inject IConfiguration Configuration
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -66,7 +67,48 @@
             ⚠️ @errorMessage
         </div>
     }
+
+    <div class="debug-console">
+        <div class="console-header">Debug Console</div>
+        <div class="console-logs" @ref="consoleArea">
+            @foreach (var log in debugLogs)
+            {
+                <div class="log-entry">@log</div>
+            }
+        </div>
+    </div>
 </div>
+
+<style>
+    .debug-console {
+        margin-top: 20px;
+        background: #1e1e1e;
+        color: #00ff00;
+        font-family: monospace;
+        font-size: 12px;
+        border-radius: 8px;
+        padding: 10px;
+        height: 150px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #333;
+    }
+    .console-header {
+        border-bottom: 1px solid #333;
+        padding-bottom: 5px;
+        margin-bottom: 5px;
+        color: #888;
+        font-weight: bold;
+    }
+    .console-logs {
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+    .log-entry {
+        margin-bottom: 2px;
+        word-break: break-all;
+    }
+</style>
 
 @code {
     private ClientWebSocket? webSocket;
@@ -78,7 +120,21 @@
     private string selectedVoice = "en-emma";
     private List<ChatMessage> messages = new();
     private ElementReference chatArea;
+    private ElementReference consoleArea;
     private List<byte> pendingAudioBytes = new();
+    private List<string> debugLogs = new();
+
+    private void LogDebug(string message)
+    {
+        var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+        debugLogs.Add($"[{timestamp}] {message}");
+        InvokeAsync(StateHasChanged);
+        try
+        {
+            _ = JS.InvokeVoidAsync("eval", "setTimeout(() => { var el = document.querySelector('.console-logs'); if(el) el.scrollTop = el.scrollHeight; }, 50)");
+        }
+        catch { }
+    }
 
     private class ChatMessage
     {
@@ -92,6 +148,7 @@
     {
         if (firstRender)
         {
+            LogDebug("Component rendered, initiating connection...");
             await ConnectWebSocket();
         }
         // Scroll chat to bottom
@@ -102,15 +159,24 @@
     {
         try
         {
-            var httpClient = HttpClientFactory.CreateClient("backend");
-            var backendUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://backend";
+            LogDebug("Resolving backend URL from configuration...");
+            // Resolve the actual backend URL from Aspire service discovery configuration.
+            // ClientWebSocket doesn't go through HttpClient's service discovery pipeline,
+            // so we read the resolved endpoint directly from configuration.
+            var backendUrl = Configuration["services:backend:backend-http:0"]?.TrimEnd('/')
+                ?? "http://localhost:8000";
+            LogDebug($"Resolved backend URL: {backendUrl}");
+
             var wsUrl = backendUrl.Replace("https://", "wss://").Replace("http://", "ws://");
+            LogDebug($"WebSocket URL: {wsUrl}/ws/conversation");
 
             webSocket = new ClientWebSocket();
             cts = new CancellationTokenSource();
 
+            LogDebug("Initiating WebSocket connection...");
             await webSocket.ConnectAsync(new Uri($"{wsUrl}/ws/conversation"), cts.Token);
             isConnected = true;
+            LogDebug("WebSocket connected successfully.");
             await InvokeAsync(StateHasChanged);
 
             _ = Task.Run(ReceiveLoop);
@@ -118,6 +184,11 @@
         catch (Exception ex)
         {
             errorMessage = $"Connection failed: {ex.Message}";
+            LogDebug($"Connection failed: {ex.GetType().Name} - {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                LogDebug($"Inner exception: {ex.InnerException.Message}");
+            }
             isConnected = false;
             await InvokeAsync(StateHasChanged);
         }
@@ -134,6 +205,7 @@
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
+                    LogDebug("WebSocket closed by server.");
                     isConnected = false;
                     await InvokeAsync(StateHasChanged);
                     break;
@@ -151,10 +223,11 @@
             }
         }
         catch (OperationCanceledException) { }
-        catch (WebSocketException)
+        catch (WebSocketException ex)
         {
             isConnected = false;
             errorMessage = "WebSocket disconnected. Reconnecting...";
+            LogDebug($"WebSocket exception: {ex.Message}. Reconnecting in 2s...");
             await InvokeAsync(StateHasChanged);
             await Task.Delay(2000);
             await ConnectWebSocket();

@@ -4,13 +4,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
-
 builder.Services.AddHttpClient("backend", client =>
 {
-    client.BaseAddress = new Uri("http://backend");
+    client.BaseAddress = new Uri("http+https://backend");
 });
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 
 var app = builder.Build();
 
