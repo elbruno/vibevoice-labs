@@ -10,6 +10,17 @@
 
 ## Learnings
 
+### 2026-02-19: Architecture documentation completed for all 7 scenarios
+- Updated summary table: Scenario 3 now "CSnakes Embedded Python", Scenario 4 now "Real-Time Conversation"
+- Added detailed architecture section for Scenario 3: in-process CPython embedding via CSnakes library, no subprocess overhead, direct function calls from C#, voice presets auto-downloaded
+- Added detailed architecture section for Scenario 4: WebSocket-based real-time conversation, STT (Parakeet) → AI (OpenAI) → TTS (VibeVoice) pipeline, push-to-talk microphone capture in Blazor frontend
+- Added detailed architecture section for Scenario 5: Python batch CLI with ThreadPoolExecutor parallelization, YAML front-matter voice overrides, progress tracking via tqdm, shared VibeVoice model instance across threads
+- Added detailed architecture section for Scenario 6: streaming TTS with time-to-first-chunk ~300ms, audio chunks played immediately via sounddevice, fallback to file-only mode if no audio hardware
+- Added detailed architecture section for Scenario 7: .NET MAUI cross-platform app (Windows/Android/iOS/macOS), single XAML codebase, TtsService HttpClient wrapper, Plugin.Maui.Audio for native playback
+- Each section includes ASCII architecture diagram, component descriptions, data flow diagram, and technology rationale
+- All diagrams maintain visual consistency with Scenario 2 documentation
+- Scenario 2 section preserved intact
+
 ### 2026-02-19: Complete documentation overhaul for all 7 scenarios
 - Updated root README.md to ensure all 7 scenarios are clearly listed with descriptions and links
 - Expanded docs/GETTING_STARTED.md to include detailed setup instructions for all 7 scenarios (1-7)

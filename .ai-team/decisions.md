@@ -584,3 +584,257 @@ Bruno requested verification that all C# scenarios build and READMEs are accurat
 - READMEs provide clear setup and usage instructions
 - MAUI scenario requires one-time `dotnet workload install maui` (documented)
 - No code changes needed; all builds succeed with correct environment setup
+
+---
+### 2026-02-19: User directive
+**By:** Bruno Capuano (via Copilot)
+**What:** Using standalone Python (System.Diagnostics.Process) is NOT allowed in C# scenarios. Use CSnakes C# library for Python interop instead, or other native C# libraries for model inference.
+**Why:** User request — captured for team memory
+
+---
+# WebSocket Protocol: Voice Conversation
+
+**Proposed by:** Naomi (Backend Dev)  
+**Date:** 2026-02-19  
+**Status:** Proposed  
+**Affects:** Alex (Frontend Dev)
+
+## Endpoint
+
+`ws://<host>:<port>/ws/conversation`
+
+## Protocol Summary
+
+One conversation turn = client sends audio → server responds with text + audio.
+
+## Client → Server Messages
+
+### 1. Audio Data (Binary Frame)
+- **Format:** Raw 16kHz, 16-bit signed integer, mono PCM
+- **Delivery:** Stream binary frames as microphone captures audio
+- **Max buffer:** 30 seconds (~960KB)
+
+### 2. End of Speech (Text Frame)
+```json
+{"type": "end_of_speech"}
+```
+Signals the server to process accumulated audio. Triggers the STT → Chat → TTS pipeline.
+
+### 3. Reset Conversation (Text Frame)
+```json
+{"type": "reset"}
+```
+Clears AI conversation history. Server responds with `{"type": "reset_ack"}`.
+
+## Server → Client Messages
+
+### 1. Transcript (Text Frame)
+```json
+{"type": "transcript", "text": "What the user said"}
+```
+Sent after STT completes.
+
+### 2. AI Response (Text Frame)
+```json
+{"type": "response", "text": "AI's reply text"}
+```
+Sent after chat completion.
+
+### 3. Audio (Binary Frame)
+WAV audio data at 24kHz sample rate. Contains WAV header — playable directly.
+
+### 4. Audio Complete (Text Frame)
+```json
+{"type": "audio_complete"}
+```
+All audio for this turn has been sent. Client can start next turn.
+
+### 5. Error (Text Frame)
+```json
+{"type": "error", "error": "Description of what went wrong"}
+```
+
+## Turn Sequence Diagram
+
+```
+Client                          Server
+  |                               |
+  |-- binary audio frames ------->|
+  |-- binary audio frames ------->|
+  |-- {"type":"end_of_speech"} -->|
+  |                               | [STT processing]
+  |<-- {"type":"transcript"} -----|
+  |                               | [Chat completion]
+  |<-- {"type":"response"} -------|
+  |                               | [TTS generation]
+  |<-- binary WAV audio ----------|
+  |<-- {"type":"audio_complete"} -|
+  |                               |
+  | (next turn...)                |
+```
+
+## Notes for Frontend Implementation
+
+1. Use `MediaRecorder` or `AudioWorklet` to capture 16kHz 16-bit PCM from mic
+2. Send audio chunks as binary WebSocket frames during recording
+3. Send `end_of_speech` when user stops talking (button release or VAD)
+4. Wait for `audio_complete` before allowing next turn
+5. Play received binary frames directly as WAV audio (`new Audio(URL.createObjectURL(blob))`)
+6. Display `transcript` and `response` text in the UI for visual feedback
+
+---
+# Decision: Scenario 4 Aspire Scaffold
+
+**Date:** 2026-02-19
+**By:** Holden (Lead)
+**Requested by:** Bruno Capuano
+
+## What
+
+Restructured `src/scenario-04-meai/` from a standalone C# console app into an Aspire-orchestrated fullstack application for real-time voice conversation, following the exact pattern from scenario-02-fullstack.
+
+## Changes
+
+1. **Preserved old code** — `Program.cs` → `.bak`, `SpeechPlugin.cs` → `.bak`
+2. **VoiceLabs.ConversationHost/** — Aspire AppHost (SDK 13.0.0, Aspire.Hosting.Python 13.1.1)
+3. **VoiceLabs.ServiceDefaults/** — Already existed, verified identical to scenario-02
+4. **VoiceLabs.slnx** — Solution referencing ConversationHost, ServiceDefaults, ConversationWeb
+5. **Directory stubs** — `backend/` (for Naomi), `VoiceLabs.ConversationWeb/` (for Alex)
+6. **`.aspire/settings.json`** — Points to ConversationHost project
+
+## Why
+
+- Consistent Aspire orchestration pattern across scenarios
+- Enables real-time voice conversation with Python backend + Blazor frontend
+- Clean separation: Holden scaffolds, Naomi builds backend, Alex builds frontend
+
+## Impact
+
+- Old MEAI console code preserved as `.bak` files
+- Solution won't build until Alex creates the ConversationWeb project
+- Backend directory ready for Naomi to populate with FastAPI conversation API
+
+---
+# Decision: Scenario 3 Rewritten to Direct Model Invocation
+
+**Date:** 2026-02-19  
+**By:** Alex (Frontend Dev)  
+**Requested by:** Bruno Capuano
+
+## What Changed
+
+Scenario 3 (`src/scenario-03-csharp-simple/`) was rewritten from an HTTP client that called the FastAPI backend to a direct model invocation using `System.Diagnostics.Process` to run a Python helper script.
+
+## Architecture
+
+```
+Before:  C# → HttpClient → FastAPI Backend → VibeVoice Model → WAV
+After:   C# → Process → tts_helper.py → VibeVoice Model → WAV (no backend needed)
+```
+
+## Why Process Instead of pythonnet
+
+- **Simpler:** No Python runtime configuration in C#, no NuGet dependencies
+- **Portable:** Works with any Python venv, any OS
+- **Debuggable:** Python script can be tested independently
+- **Reliable:** No DLL loading issues or version conflicts
+
+## Impact on Other Scenarios
+
+- Scenario 3 **no longer requires** the Scenario 2 backend to be running
+- Scenario 3 now requires Python + VibeVoice installed locally (own `requirements.txt`)
+- Voice ID format uses Capitalized names (Carter, Emma) matching Scenario 1 convention
+
+## Files Changed
+
+- `src/scenario-03-csharp-simple/Program.cs` — Complete rewrite
+- `src/scenario-03-csharp-simple/tts_helper.py` — New Python TTS engine
+- `src/scenario-03-csharp-simple/requirements.txt` — New Python deps
+- `src/scenario-03-csharp-simple/README.md` — Updated docs
+- Root README, GETTING_STARTED, USER_MANUAL, ARCHITECTURE — All updated
+
+---
+### Aspire Frontend-to-Backend HTTP Fix
+
+**By:** Naomi (Backend Dev)  
+**Date:** 2026-02-19  
+**Status:** Implemented
+
+**What:**
+- Changed `AppHost.cs` to add `.WithHttpEndpoint(targetPort: 8000, env: "PORT")` on the `AddUvicornApp` call
+- Changed `VoiceLabs.Web/Program.cs` HttpClient base address from `https://backend` to `http://backend`
+
+**Why:**
+The Python uvicorn backend only serves HTTP (not HTTPS). Aspire service discovery uses the URI scheme to resolve named endpoints — `https://backend` tried to find an HTTPS endpoint that didn't exist. Adding `WithHttpEndpoint` explicitly declares the backend's HTTP endpoint for Aspire, and switching to `http://` ensures the frontend connects on the correct scheme.
+
+**Impact:**
+- Blazor frontend can now reach the Python FastAPI backend through Aspire service discovery
+- The `PORT` environment variable is passed to uvicorn via the `env: "PORT"` parameter
+- Build verified: 0 errors, 0 warnings
+
+---
+# Decision: Conversation Web UI Architecture
+
+**Date:** 2026-02-19  
+**By:** Alex (Frontend Dev)  
+**Requested by:** Bruno Capuano
+
+## What
+
+Created `src/scenario-04-meai/VoiceLabs.ConversationWeb/` — a Blazor Server real-time voice conversation frontend for Scenario 4.
+
+## Key Decisions
+
+### WebSocket over HTTP polling
+- Real-time voice conversation requires low-latency bidirectional communication
+- WebSocket URL derived from Aspire service discovery: `http://backend` → `ws://backend/ws/conversation`
+- Binary frames for audio data, JSON text frames for control messages
+
+### Push-to-Talk (not voice activity detection)
+- Simpler and more reliable than VAD
+- Works across all browsers without extra libraries
+- Touch events supported for mobile usage
+- Clear UX: hold button = recording, release = send
+
+### MediaRecorder with webm format
+- Native browser API, no external dependencies
+- webm/opus is well-supported across modern browsers
+- Backend handles transcoding to PCM/WAV as needed
+
+### Auto-play AI responses
+- Audio auto-plays when `audio_complete` message received
+- Users can replay via inline 🔊 button on each AI message
+
+### ServiceDefaults duplication
+- Copied ServiceDefaults from scenario-02 into scenario-04-meai
+- Each scenario is self-contained; avoids cross-scenario project references
+
+## Files Created
+
+```
+VoiceLabs.ConversationWeb/
+├── VoiceLabs.ConversationWeb.csproj
+├── Program.cs
+├── Properties/launchSettings.json
+├── appsettings.json
+├── appsettings.Development.json
+├── Components/
+│   ├── App.razor
+│   ├── Routes.razor
+│   ├── _Imports.razor
+│   ├── Layout/MainLayout.razor
+│   └── Pages/Home.razor
+└── wwwroot/
+    ├── favicon.ico
+    ├── css/app.css
+    └── js/audio.js
+
+VoiceLabs.ServiceDefaults/
+├── VoiceLabs.ServiceDefaults.csproj
+└── Extensions.cs
+```
+
+## Build Status
+
+✅ `dotnet build` succeeds with zero errors.
+
