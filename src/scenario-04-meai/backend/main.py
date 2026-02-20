@@ -14,7 +14,7 @@ Run with: uvicorn main:app --host 0.0.0.0 --port 8000
 import os
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
@@ -48,7 +48,7 @@ app.include_router(test_router, prefix="/api/test")
 
 # WebSocket endpoint
 @app.websocket("/ws/conversation")
-async def websocket_conversation(websocket):
+async def websocket_conversation(websocket: WebSocket):
     await handle_conversation(websocket)
 
 
