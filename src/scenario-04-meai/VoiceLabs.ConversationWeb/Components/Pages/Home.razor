@@ -163,8 +163,26 @@
             // Resolve the actual backend URL from Aspire service discovery configuration.
             // ClientWebSocket doesn't go through HttpClient's service discovery pipeline,
             // so we read the resolved endpoint directly from configuration.
-            var backendUrl = Configuration["services:backend:backend-http:0"]?.TrimEnd('/')
-                ?? "http://localhost:8000";
+            
+            // The backend has two endpoints: https and http.
+            // We need to find the http one to avoid SSL certificate issues with wss://
+            var backendUrl = "http://localhost:8000";
+            
+            // Aspire injects configuration keys like:
+            // services:backend:http:0 = http://localhost:56707
+            // services:backend:https:0 = https://localhost:56708
+            // Let's iterate through the configuration to find the http endpoint
+            var backendConfig = Configuration.GetSection("services:backend").GetChildren();
+            foreach (var section in backendConfig)
+            {
+                var url = section.GetChildren().FirstOrDefault()?.Value;
+                if (url != null && url.StartsWith("http://"))
+                {
+                    backendUrl = url.TrimEnd('/');
+                    break;
+                }
+            }
+            
             LogDebug($"Resolved backend URL: {backendUrl}");
 
             var wsUrl = backendUrl.Replace("https://", "wss://").Replace("http://", "ws://");
@@ -315,7 +333,7 @@
                     cts?.Token ?? CancellationToken.None);
 
                 // Send end_audio signal
-                var endSignal = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "end_audio" }));
+                var endSignal = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "end_of_speech" }));
                 await webSocket.SendAsync(
                     new ArraySegment<byte>(endSignal),
                     WebSocketMessageType.Text,
