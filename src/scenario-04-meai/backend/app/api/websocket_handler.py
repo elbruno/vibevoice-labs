@@ -32,52 +32,75 @@ MAX_AUDIO_BUFFER = 16000 * 2 * 30
 
 async def handle_conversation(websocket: WebSocket):
     """Handle a single WebSocket conversation session."""
-    await websocket.accept()
-    logger.info("WebSocket conversation connected")
+    client_host = websocket.client.host if websocket.client else "unknown"
+    logger.info(f"WebSocket connection attempt from {client_host}")
+    
+    try:
+        await websocket.accept()
+        logger.info(f"WebSocket connection accepted from {client_host}")
+    except Exception as e:
+        logger.error(f"Failed to accept WebSocket connection from {client_host}: {e}", exc_info=True)
+        return
 
     audio_buffer = bytearray()
 
     try:
-        chat_service = ChatService()
+        # Initialize chat service with error handling
+        try:
+            chat_service = ChatService()
+            logger.info(f"Chat service initialized for WebSocket session from {client_host}")
+        except Exception as e:
+            logger.error(f"Failed to initialize chat service: {e}", exc_info=True)
+            await _send_error(websocket, f"Chat service initialization failed: {e}")
+            await websocket.close(code=1011, reason="Service initialization failed")
+            return
+        
         while True:
             message = await websocket.receive()
 
             if "bytes" in message and message["bytes"]:
                 # Binary frame: accumulate audio data
                 chunk = message["bytes"]
+                logger.debug(f"Received {len(chunk)} bytes of audio from {client_host}")
                 if len(audio_buffer) + len(chunk) <= MAX_AUDIO_BUFFER:
                     audio_buffer.extend(chunk)
                 else:
+                    logger.warning(f"Audio buffer full for {client_host}")
                     await _send_error(websocket, "Audio buffer full (max 30s)")
                     audio_buffer.clear()
 
             elif "text" in message and message["text"]:
                 # Text frame: control signal
+                logger.debug(f"Received text message from {client_host}: {message['text'][:100]}")
                 try:
                     data = json.loads(message["text"])
                 except json.JSONDecodeError:
+                    logger.warning(f"Invalid JSON from {client_host}: {message['text'][:100]}")
                     await _send_error(websocket, "Invalid JSON")
                     continue
 
                 msg_type = data.get("type", "")
 
                 if msg_type == "end_of_speech":
+                    logger.info(f"Processing conversation turn for {client_host}")
                     # Process the accumulated audio through the conversation pipeline
                     await _process_turn(websocket, chat_service, bytes(audio_buffer))
                     audio_buffer.clear()
 
                 elif msg_type == "reset":
+                    logger.info(f"Resetting conversation for {client_host}")
                     chat_service.reset()
                     audio_buffer.clear()
                     await websocket.send_text(json.dumps({"type": "reset_ack"}))
 
                 else:
+                    logger.warning(f"Unknown message type from {client_host}: {msg_type}")
                     await _send_error(websocket, f"Unknown message type: {msg_type}")
 
     except WebSocketDisconnect:
-        logger.info("WebSocket conversation disconnected")
+        logger.info(f"WebSocket disconnected normally from {client_host}")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error from {client_host}: {e}", exc_info=True)
         try:
             await _send_error(websocket, str(e))
         except Exception:

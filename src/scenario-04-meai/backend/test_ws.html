@@ -17,9 +17,11 @@
     
     <div>
         <label for="wsUrl">WebSocket URL:</label>
-        <input type="text" id="wsUrl" value="ws://localhost:52583/ws/conversation" style="width: 300px;">
+        <input type="text" id="wsUrl" value="ws://localhost:8000/ws/test" style="width: 300px;">
         <button onclick="connect()">Connect</button>
         <button onclick="disconnect()">Disconnect</button>
+        <button onclick="useTestEndpoint()">Use /ws/test</button>
+        <button onclick="useConversationEndpoint()">Use /ws/conversation</button>
     </div>
     
     <div style="margin-top: 10px;">
@@ -91,6 +93,16 @@
             if (ws) {
                 ws.close();
             }
+        }
+
+        function useTestEndpoint() {
+            document.getElementById('wsUrl').value = 'ws://localhost:8000/ws/test';
+            log('Switched to test endpoint (simple echo)', 'system');
+        }
+
+        function useConversationEndpoint() {
+            document.getElementById('wsUrl').value = 'ws://localhost:8000/ws/conversation';
+            log('Switched to conversation endpoint (requires services)', 'system');
         }
 
         function sendMessage() {

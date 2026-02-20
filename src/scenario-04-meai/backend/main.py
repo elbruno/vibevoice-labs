@@ -81,7 +81,26 @@ app.include_router(test_router, prefix="/api/test")
 # WebSocket endpoint
 @app.websocket("/ws/conversation")
 async def websocket_conversation(websocket: WebSocket):
+    """Main WebSocket endpoint for voice conversation."""
     await handle_conversation(websocket)
+
+
+@app.websocket("/ws/test")
+async def websocket_test(websocket: WebSocket):
+    """Simple WebSocket test endpoint - echoes back messages without loading services."""
+    await websocket.accept()
+    logger.info(f"Test WebSocket connected from {websocket.client.host if websocket.client else 'unknown'}")
+    
+    try:
+        await websocket.send_text('{"type": "connected", "message": "WebSocket test endpoint ready"}')
+        
+        while True:
+            message = await websocket.receive_text()
+            logger.info(f"Test WebSocket received: {message[:100]}")
+            # Echo back
+            await websocket.send_text(f'{{"type": "echo", "data": {message}}}')
+    except Exception as e:
+        logger.info(f"Test WebSocket disconnected: {e}")
 
 
 @app.get("/")
@@ -92,11 +111,13 @@ async def root():
         "endpoints": {
             "docs": "/docs",
             "health": "/api/health",
+            "warmup": "/api/warmup",
             "voices": "/api/voices",
             "test_ping": "/api/test/ping",
             "test_echo": "/api/test/echo",
             "test_headers": "/api/test/headers",
-            "websocket": "/ws/conversation"
+            "websocket": "/ws/conversation",
+            "websocket_test": "/ws/test"
         }
     }
 

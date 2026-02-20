@@ -21,17 +21,37 @@ class ChatService:
         self.model = os.environ.get("OLLAMA_MODEL", "llama3.2")
         self.base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         self.history: list[dict] = []
+        self.client = None
         
-        # Configure Ollama client
-        if self.base_url != "http://localhost:11434":
-            self.client = ollama.Client(host=self.base_url)
-        else:
-            self.client = ollama.Client()
+        # Defer client creation to avoid crashes on initialization
+        self._initialize_client()
         
-        logger.info(f"Chat service using Ollama model: {self.model} at {self.base_url}")
+    def _initialize_client(self):
+        """Initialize Ollama client with error handling."""
+        try:
+            # Configure Ollama client
+            if self.base_url != "http://localhost:11434":
+                self.client = ollama.Client(host=self.base_url)
+            else:
+                self.client = ollama.Client()
+            
+            logger.info(f"Chat service using Ollama model: {self.model} at {self.base_url}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Ollama client: {e}")
+            self.client = None
 
     def chat(self, user_text: str) -> str:
         """Send user text, get AI response. Maintains conversation history."""
+        # Ensure client is initialized
+        if not self.client:
+            self._initialize_client()
+            if not self.client:
+                raise RuntimeError(
+                    f"Ollama client not available. "
+                    f"Ensure Ollama is running at {self.base_url} "
+                    f"and model '{self.model}' is installed."
+                )
+        
         self.history.append({"role": "user", "content": user_text})
 
         try:
@@ -48,7 +68,8 @@ class ChatService:
             return ai_text
         except Exception as e:
             logger.error(f"Chat error: {e}")
-            raise
+            # Re-raise with more context
+            raise RuntimeError(f"Ollama chat failed: {e}") from e
 
     def reset(self):
         """Clear conversation history."""
