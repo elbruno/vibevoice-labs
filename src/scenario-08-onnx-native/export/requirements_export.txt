@@ -1,0 +1,17 @@
+# Python dependencies for ONNX model export (one-time use only)
+# These are NOT needed at runtime — the C# app uses ONNX Runtime directly.
+
+# Core model loading
+vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git
+torch>=2.0.0
+
+# ONNX export and validation
+onnx>=1.15.0
+onnxruntime>=1.17.0
+onnxscript>=0.1.0
+
+# Numerical utilities
+numpy>=1.24.0
+
+# Optional: model optimization
+onnxruntime-tools>=1.7.0

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the system architecture of VibeVoice Labs across all 7 scenarios.
+This document describes the system architecture of VibeVoice Labs across all 8 scenarios.
 
 ## Scenario Architectures at a Glance
 
@@ -8,11 +8,12 @@ This document describes the system architecture of VibeVoice Labs across all 7 s
 |----------|--------------|-----------|----------|
 | 1 | **Standalone Python** | Python script + VibeVoice TTS | Learning, local batch generation |
 | 2 | **Aspire Orchestration** | Blazor frontend + FastAPI backend | Full-stack web application |
-| 3 | **CSnakes Embedded Python** | C# console + embedded CPython via CSnakes | Running VibeVoice directly from .NET process |
+| 3 | **ONNX Native C#** | C# console + ONNX Runtime | Running VibeVoice natively from .NET (no Python) |
 | 4 | **Real-Time Conversation** | Blazor frontend + Python FastAPI backend + OpenAI | AI-driven voice conversation with streaming |
 | 5 | **Batch Processing** | Python CLI + direct TTS model | Bulk text-to-audio conversion with YAML overrides |
 | 6 | **Streaming Real-Time** | Python streaming processor | Low-latency audio playback (~300ms to first chunk) |
 | 7 | **MAUI Cross-Platform** | MAUI UI + HTTP TTS client | Mobile/desktop app across Windows, Android, iOS, macOS |
+| 8 | **ONNX Export + Native Pipeline** | Python export tools + C# ONNX Runtime | Full ONNX model export and native C# inference pipeline |
 
 ---
 
@@ -260,7 +261,7 @@ For production deployment, consider:
 
 ---
 
-## Detailed Architecture: Scenario 3 (CSnakes Embedded Python)
+## Detailed Architecture: Scenario 3 (ONNX Native C#)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -273,31 +274,25 @@ For production deployment, consider:
 │  │  • Output path configuration                      │    │
 │  │                                                    │    │
 │  │  ┌─────────────────────────────────────────────┐  │    │
-│  │  │  CSnakes Runtime (Embedded CPython)         │  │    │
-│  │  │  • Hosts Python 3.11+ interpreter           │  │    │
-│  │  │  • Auto-creates virtual environment         │  │    │
-│  │  │  • Installs requirements.txt packages       │  │    │
-│  │  │  • Executes vibevoice_tts.py functions     │  │    │
+│  │  │  ONNX Runtime (Microsoft.ML.OnnxRuntime)    │  │    │
+│  │  │  • Native C# inference, no Python needed    │  │    │
+│  │  │  • Loads pre-exported ONNX model files      │  │    │
 │  │  │                                             │  │    │
 │  │  │  ┌──────────────────────────────────────┐  │  │    │
-│  │  │  │  vibevoice_tts.py Module             │  │  │    │
-│  │  │  │  • synthesize_speech() function      │  │  │    │
-│  │  │  │  • Voice preset management           │  │  │    │
-│  │  │  │  • VibeVoice model inference         │  │  │    │
-│  │  │  │  • WAV file output                   │  │  │    │
-│  │  │  │                                      │  │  │    │
-│  │  │  │  ┌───────────────────────────────┐  │  │  │    │
-│  │  │  │  │ VibeVoice-Realtime-0.5B       │  │  │  │    │
-│  │  │  │  │ • Voice presets (.pt files)   │  │  │  │    │
-│  │  │  │  │ • Audio generation            │  │  │  │    │
-│  │  │  │  │ • Speaker embeddings          │  │  │  │    │
-│  │  │  │  └───────────────────────────────┘  │  │  │    │
-│  │  │  │                                      │  │  │    │
-│  │  │  │  ┌───────────────────────────────┐  │  │  │    │
-│  │  │  │  │ PyTorch (CPU or CUDA)         │  │  │  │    │
-│  │  │  │  │ • Tensor operations           │  │  │  │    │
-│  │  │  │  │ • GPU acceleration (optional) │  │  │  │    │
-│  │  │  │  └───────────────────────────────┘  │  │  │    │
+│  │  │  │  text_encoder.onnx                   │  │  │    │
+│  │  │  │  • LLM backbone (Qwen2.5)           │  │  │    │
+│  │  │  │  • Text tokens → hidden states       │  │  │    │
+│  │  │  └──────────────────────────────────────┘  │  │    │
+│  │  │                                             │  │    │
+│  │  │  ┌──────────────────────────────────────┐  │  │    │
+│  │  │  │  diffusion_step.onnx (×5 steps)     │  │  │    │
+│  │  │  │  • DDPM denoising step               │  │  │    │
+│  │  │  │  • Noise → clean latents             │  │  │    │
+│  │  │  └──────────────────────────────────────┘  │  │    │
+│  │  │                                             │  │    │
+│  │  │  ┌──────────────────────────────────────┐  │  │    │
+│  │  │  │  acoustic_decoder.onnx               │  │  │    │
+│  │  │  │  • Latents → 24kHz audio waveform    │  │  │    │
 │  │  │  └──────────────────────────────────────┘  │  │    │
 │  │  │                                             │  │    │
 │  │  └─────────────────────────────────────────────┘  │    │
@@ -319,141 +314,118 @@ A simple .NET console application that orchestrates the TTS workflow.
 
 **Responsibilities:**
 - Accept voice and text parameters
-- Configure CSnakes Python runtime
-- Call Python synthesize_speech() function
+- Load ONNX model sessions via ONNX Runtime
+- Run inference pipeline (tokenize → encode → diffuse → decode)
 - Display progress and results
 
 **Key Pattern:**
 ```csharp
-var module = env.VibevoiceTts();
-var result = module.SynthesizeSpeech(text, voice, outputPath);
+using var textEncoder = new InferenceSession("text_encoder.onnx");
+using var diffusion = new InferenceSession("diffusion_step.onnx");
+using var decoder = new InferenceSession("acoustic_decoder.onnx");
 ```
 
-### 2. CSnakes Runtime
+### 2. ONNX Runtime
 
-CSnakes is a Python-in-memory library for .NET that embeds a CPython interpreter.
+Microsoft's ONNX Runtime provides native C# model inference.
 
 **Features:**
-- **No subprocess** — Python runs in-process, zero IPC overhead
-- **Auto-bootstrap** — Automatically downloads Python and installs dependencies
-- **Type-safe interop** — Generates C# wrappers from Python type annotations
-- **Virtual environment** — Isolates dependencies per project
-- **GPU support** — Passes through CUDA for hardware acceleration
+- **No Python** — Pure C# execution, zero Python dependency at runtime
+- **Cross-platform** — Windows, Linux, macOS, mobile
+- **GPU support** — DirectML (Windows), CUDA (NVIDIA), via NuGet packages
+- **Optimized** — Hardware-accelerated inference with graph optimizations
 
-**Configuration:**
-```csharp
-builder.Services
-    .WithPython()
-    .WithHome(pythonHome)
-    .FromRedistributable();
-```
+### 3. ONNX Model Subcomponents
 
-### 3. VibeVoice TTS Module (vibevoice_tts.py)
+The VibeVoice model is exported as three separate ONNX files:
 
-A Python module providing the `synthesize_speech()` function.
+- **text_encoder.onnx** — LLM backbone (text → hidden states)
+- **diffusion_step.onnx** — Single DDPM denoising step
+- **acoustic_decoder.onnx** — Latent → waveform audio
 
-**Responsibilities:**
-- Download voice presets (.pt files) on first run
-- Load VibeVoice-Realtime-0.5B model and processor
-- Handle voice preset matching
-- Generate audio using cached prompts (speaker embeddings)
-- Save output as WAV file with soundfile
-
-**Supported Voices:**
-- Carter, Davis, Emma, Frank, Grace, Mike (English)
-
-**Type Annotations:**
-All public functions have Python type hints for CSnakes code generation:
-```python
-def synthesize_speech(text: str, voice: str, output_path: str) -> str:
-    """Returns status message"""
-```
+The diffusion loop (5 steps) runs in C# code, calling `diffusion_step.onnx` per iteration.
 
 ### 4. Voice Presets
 
-Pre-computed speaker embeddings downloaded from VibeVoice GitHub repository.
+Pre-computed speaker embeddings exported to NumPy `.npy` format.
 
 **Storage:**
 ```
-scenario-03-csharp-simple/voices/
-├── en-Carter_man.pt
-├── en-Davis_man.pt
-├── en-Emma_woman.pt
-├── en-Frank_man.pt
-├── en-Grace_woman.pt
-└── en-Mike_man.pt
+scenario-08-onnx-native/models/voices/
+├── manifest.json
+├── Carter/
+│   ├── speaker_embedding.npy
+│   └── style_embedding.npy
+├── Emma/
+│   └── ...
 ```
-
-**Mechanism:**
-Voice presets are cached PyTorch tensors containing speaker-specific embeddings that condition the TTS model for consistent voice quality.
 
 ## Data Flow
 
 ```
 ┌──────────┐    ┌────────────────┐    ┌──────────────┐    ┌──────────┐
-│   User   │    │  C# Console    │    │  CSnakes     │    │VibeVoice │
-│  Input   │    │  Application   │    │  Runtime     │    │  Model   │
+│   User   │    │  C# Console    │    │  ONNX        │    │  Audio   │
+│  Input   │    │  Application   │    │  Runtime     │    │  Output  │
 └────┬─────┘    └────┬───────────┘    └──────┬───────┘    └────┬─────┘
      │               │                       │                 │
      │ Voice + Text  │                       │                 │
      ├──────────────►│                       │                 │
      │               │                       │                 │
-     │               │ Call synthesize_      │                 │
-     │               │ speech(text, voice)   │                 │
+     │               │ Tokenize text (C#)    │                 │
      │               ├──────────────────────►│                 │
      │               │                       │                 │
-     │               │                       │ Load model      │
-     │               │                       ├────────────────►│
-     │               │                       │                 │
-     │               │                       │ Process text +  │
-     │               │                       │ voice preset    │
-     │               │                       ├────────────────►│
-     │               │                       │                 │
-     │               │                       │◄────────────────┤
-     │               │                       │ Audio tensor    │
-     │               │                       │                 │
+     │               │ text_encoder.onnx     │                 │
+     │               ├──────────────────────►│                 │
      │               │◄──────────────────────┤                 │
-     │               │ WAV bytes + status    │                 │
+     │               │ hidden states         │                 │
+     │               │                       │                 │
+     │               │ diffusion_step.onnx   │                 │
+     │               │ (×5 iterations)       │                 │
+     │               ├──────────────────────►│                 │
+     │               │◄──────────────────────┤                 │
+     │               │ clean latents         │                 │
+     │               │                       │                 │
+     │               │ acoustic_decoder.onnx │                 │
+     │               ├──────────────────────►│                 │
+     │               │◄──────────────────────┤                 │
+     │               │ audio samples         │                 │
+     │               │                       │                 │
+     │               │ Save WAV              │                 │
+     │               ├──────────────────────────────────────►│
      │               │                       │                 │
      │◄──────────────┤                       │                 │
      │ Success / Error                       │                 │
-     │               │                       │                 │
 ```
 
 ### Sequence Details
 
-1. **Initialize CSnakes** — Console creates Python runtime, installs dependencies
-2. **Download Voices** — First run downloads voice preset files (~20 MB total)
-3. **Load Model** — VibeVoice-Realtime-0.5B loaded into memory (~2 GB)
-4. **Process Input** — Text and voice preset converted to model tensors
-5. **Generate Audio** — Model inference produces audio tensor
-6. **Save WAV** — Audio written to file using soundfile library
-7. **Return Result** — Status message returned to C# caller
+1. **Load ONNX Models** — Open InferenceSession for each ONNX file
+2. **Tokenize Text** — BPE tokenization in C# using HuggingFace vocab
+3. **Text Encoding** — Run text_encoder.onnx to get hidden states
+4. **Diffusion Loop** — 5 denoising steps via diffusion_step.onnx
+5. **Audio Decoding** — Convert latents to waveform via acoustic_decoder.onnx
+6. **Save WAV** — Write audio samples to file as 24kHz 16-bit PCM
 
 ## Technology Choices & Rationale
 
-### Why CSnakes?
+### Why ONNX Runtime (Native C#)?
 
-- **In-Process Execution** — No subprocess overhead or IPC delays
-- **Type Safety** — Automatic C# wrapper generation from Python type hints
-- **Deployment** — Single .NET executable, no separate Python installation required
-- **Development** — Pure C# project can call Python functions directly
-
-### Why Embedded Instead of HTTP?
-
-- **Latency** — Direct function calls faster than network round-trips
-- **Resource Efficiency** — Shared process memory, no serialization overhead
-- **Simplicity** — No server setup, ports, or service orchestration needed
+- **Zero Python Dependency** — No Python installation, no PyTorch, no virtual environments
+- **Deployment Simplicity** — Single .NET executable + ONNX model files
+- **Cross-Platform** — Same code runs on Windows, Linux, macOS, and mobile
+- **Performance** — Optimized native execution with optional GPU acceleration
+- **Mobile Ready** — Compatible with .NET MAUI for mobile deployment
 
 ### Trade-offs
 
-| Aspect | Embedded (CSnakes) | HTTP (Scenario 2/7) |
-|--------|-------------------|-------------------|
-| **Latency** | Lowest (~direct calls) | Higher (~50-200ms) |
-| **Deployment** | Single .exe | Separate backend + frontend |
+| Aspect | ONNX Native (Scenario 3/8) | HTTP (Scenario 2/7) |
+|--------|---------------------------|-------------------|
+| **Latency** | Lowest (~direct inference) | Higher (~50-200ms) |
+| **Deployment** | Single .exe + ONNX files | Separate backend + frontend |
+| **Python needed** | No (export only, one-time) | Yes (backend runtime) |
 | **Scalability** | Single process | Horizontal (multiple backends) |
 | **UI** | Console only | Web / MAUI / Mobile |
-| **Resource** | All in one memory space | Isolated processes |
+| **Model updates** | Re-export required | Hot-swap backend |
 
 ---
 

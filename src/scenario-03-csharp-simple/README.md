@@ -1,20 +1,31 @@
-# Scenario 3 — C# Console Simple Demo (CSnakes)
+# Scenario 3 — C# Console Simple Demo (ONNX Native)
 
-A simple C# console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly inside the .NET process. No subprocess calls, no HTTP backends — the Python interpreter runs in-process.
+A simple C# console app that runs VibeVoice TTS using **ONNX Runtime** — pure native C# with no Python dependency at runtime.
 
 ## How It Works
 
 ```
-C# Program.cs  →  CSnakes (embedded CPython)  →  vibevoice_tts.py  →  output.wav
-(.NET host)        (in-process Python runtime)     (VibeVoice model)
+C# Program.cs  →  ONNX Runtime  →  text_encoder.onnx + diffusion_step.onnx + acoustic_decoder.onnx  →  output.wav
+(.NET host)        (native C#)      (exported VibeVoice model subcomponents)
 ```
 
-CSnakes embeds a real CPython interpreter inside the .NET process and auto-generates typed C# wrappers from the type-annotated Python functions.
+The app loads pre-exported ONNX model files and runs the full TTS inference pipeline in C#.
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Internet access on first run (CSnakes auto-downloads Python + VibeVoice model ~1GB)
+- [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
+- ONNX model files (see [Export Models](#export-models) below)
+
+## Export Models (One-Time)
+
+ONNX models must be exported first using the Python export tool in `scenario-08-onnx-native/export/`:
+
+```bash
+cd src/scenario-08-onnx-native/export
+pip install -r requirements_export.txt
+python export_model.py --output ../models
+python export_voice_presets.py --output ../models/voices
+```
 
 ## Quick Start
 
@@ -24,18 +35,18 @@ dotnet run
 ```
 
 The app will:
-1. Set up an embedded Python environment via CSnakes
-2. Auto-install Python dependencies (first run)
-3. Load the VibeVoice model and generate audio
+1. Locate ONNX model files in `../scenario-08-onnx-native/models/`
+2. Load ONNX Runtime inference sessions
+3. Run the TTS pipeline and generate audio
 4. Save `output.wav` in the current directory
 
 ## What Each Step Does
 
 | Step | Description |
 |---|---|
-| **1** | CSnakes configures embedded Python with virtual environment |
-| **2** | Select voice preset and text to synthesize |
-| **3** | Call `vibevoice_tts.synthesize_speech()` via CSnakes interop |
+| **1** | Parse configuration and locate ONNX model files |
+| **2** | Validate all required ONNX models exist |
+| **3** | Load ONNX sessions and run inference pipeline |
 
 ## Trying Different Voices
 
@@ -54,7 +65,9 @@ var voice = "Carter";    // Male, clear American English (default)
 
 | File | Purpose |
 |---|---|
-| `Program.cs` | C# host — configures CSnakes, calls Python TTS |
-| `vibevoice_tts.py` | Python TTS module (embedded via CSnakes) |
-| `requirements.txt` | Python dependencies (install manually or via CSnakes venv) |
-| `VoiceLabs.Console.csproj` | .NET 10 project file with CSnakes NuGet |
+| `Program.cs` | C# host — loads ONNX models, runs TTS pipeline |
+| `VoiceLabs.Console.csproj` | .NET 8.0 project file with ONNX Runtime NuGet |
+
+## Full Pipeline
+
+For the complete ONNX inference implementation with tokenizer, diffusion scheduler, and audio output, see [`scenario-08-onnx-native/csharp/`](../scenario-08-onnx-native/csharp/).

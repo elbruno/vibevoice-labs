@@ -188,7 +188,7 @@ dotnet run
 
 ## Scenario 3: Simple C# Console
 
-A console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly in the .NET process. No subprocess calls or HTTP backends.
+A console app that runs VibeVoice TTS using **ONNX Runtime** — pure native C# with no Python dependency at runtime.
 
 ### Quick Start
 
@@ -199,14 +199,14 @@ dotnet run
 
 ### What Happens
 
-1. **CSnakes Setup** — Embeds Python interpreter and auto-installs dependencies
+1. **Model Check** — Validates ONNX model files exist in `../scenario-08-onnx-native/models/`
 2. **Voice Selection** — Uses a pre-configured voice (Carter by default)
-3. **Text-to-Speech** — Calls `vibevoice_tts.synthesize_speech()` via CSnakes interop
+3. **ONNX Inference** — Loads ONNX sessions and runs the TTS pipeline natively in C#
 4. **Save Output** — Stores result as `output.wav`
 
-### Configuration
+### Prerequisites
 
-CSnakes auto-manages the Python environment. No manual Python setup needed.
+ONNX model files must be exported first using the Python export tool in `scenario-08-onnx-native/export/`. This is a one-time setup step. See [Scenario 8 README](../src/scenario-08-onnx-native/README.md) for instructions.
 
 ---
 

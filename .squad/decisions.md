@@ -838,3 +838,35 @@ VoiceLabs.ServiceDefaults/
 
 ✅ `dotnet build` succeeds with zero errors.
 
+---
+
+### 2026-02-21: CSnakes Removed — Migrated to ONNX Runtime Native C#
+
+**By:** Bruno Capuano (via Copilot)
+**Status:** Implemented
+
+**What:**
+- Removed CSnakes from Scenario 3 (`src/scenario-03-csharp-simple/`) — replaced with ONNX Runtime native C# inference
+- Deleted `vibevoice_tts.py` and `requirements.txt` (Python files no longer needed)
+- Rewrote `Program.cs` to use `Microsoft.ML.OnnxRuntime` instead of `CSnakes.Runtime`
+- Updated `.csproj` to target .NET 8.0 with ONNX Runtime NuGet (removed CSnakes NuGet)
+- Created `src/scenario-08-onnx-native/` — full ONNX export tools + native C# inference pipeline
+- Updated all documentation (README, ARCHITECTURE, GETTING_STARTED, USER_MANUAL)
+
+**Why:**
+Team decision to eliminate Python dependency for C# scenarios. ONNX Runtime provides true native C# model inference without requiring Python, PyTorch, or any embedded interpreter at runtime. This enables:
+- Simpler deployment (no Python installation required)
+- Cross-platform support including mobile (MAUI)
+- Better performance (no Python interpreter overhead)
+- Smaller deployment footprint
+
+**New Scenario 8 structure:**
+- `export/` — Python scripts for one-time PyTorch → ONNX model conversion
+- `csharp/` — Full C# inference pipeline (tokenizer, diffusion scheduler, ONNX sessions)
+- `models/` — ONNX model files (gitignored, ~1 GB)
+
+**Impact:**
+- CSnakes is completely removed from the repository
+- Scenario 3 now requires ONNX model files (exported via Scenario 8's Python tools)
+- All C# scenarios use native inference — no Python dependency at runtime
+

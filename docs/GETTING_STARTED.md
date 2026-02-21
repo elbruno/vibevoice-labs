@@ -270,9 +270,20 @@ From the Aspire dashboard:
 
 ---
 
-## Scenario 3: Simple C# Console App (CSnakes)
+## Scenario 3: Simple C# Console App (ONNX Native)
 
-A .NET 10 console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly in the .NET process.
+A .NET 8.0 console app that runs VibeVoice TTS using **ONNX Runtime** — pure native C# with no Python dependency at runtime.
+
+### Prerequisites
+
+Export the ONNX models first (one-time, requires Python):
+
+```bash
+cd src/scenario-08-onnx-native/export
+pip install -r requirements_export.txt
+python export_model.py --output ../models
+python export_voice_presets.py --output ../models/voices
+```
 
 ### Run the Console App
 
@@ -281,24 +292,24 @@ cd src/scenario-03-csharp-simple
 dotnet run
 ```
 
-CSnakes auto-downloads Python and installs dependencies on first run.
-
 ### Expected Output
 
 ```
-🎙️  VibeVoice TTS — C# Console Demo (CSnakes)
+🎙️  VibeVoice TTS — C# Console Demo (ONNX Native)
 
-🐍 Step 1: Setting up embedded Python environment...
+🗣️  Step 1: Configuration
+   Voice:      Carter
+📝 Text:       "Hello! Welcome to VibeVoice Labs..."
 
-🗣️  Step 2: Voice: Carter
-📝 Text: "Hello! Welcome to VibeVoice Labs..."
+🔍 Step 2: Checking ONNX model files...
+   ✅ text_encoder.onnx (400.0 MB)
+   ✅ diffusion_step.onnx (200.0 MB)
+   ✅ acoustic_decoder.onnx (100.0 MB)
 
-🎵 Step 3: Generating audio...
+🎵 Step 3: Generating audio with ONNX Runtime...
+   ⏱️  Models loaded in 3200ms
 
-✅ Audio generated successfully!
-   📁 File:    output.wav
-   📏 Size:    475.0 KB
-   🗣️  Voice:   Carter
+✅ ONNX sessions loaded successfully!
 ```
 
 ---
@@ -651,6 +662,7 @@ cd VoiceLabs.AppHost && dotnet run
 
 ### Scenario 3 Commands
 ```bash
+# Requires ONNX models exported first (see Scenario 8)
 cd src/scenario-03-csharp-simple
 dotnet run
 ```

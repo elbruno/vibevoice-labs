@@ -21,7 +21,7 @@
 
 ## 📦 Scenarios
 
-This project includes seven ways to explore VibeVoice across Python and .NET:
+This project includes eight ways to explore VibeVoice across Python and .NET:
 
 ### Scenario 1: Simple Python Script
 A minimal, step-by-step Python script perfect for learning VibeVoice basics. **Beginner level.**
@@ -46,14 +46,12 @@ src/scenario-02-fullstack/
 ```
 
 ### Scenario 3: Simple C# Console App
-A .NET 10 console app that runs VibeVoice TTS using **CSnakes** to embed the Python model directly in the .NET process. No subprocess calls or HTTP backends. **Beginner level.**
+A .NET 8.0 console app that runs VibeVoice TTS using **ONNX Runtime** — pure native C# with no Python dependency at runtime. **Beginner level.**
 
 ```
 src/scenario-03-csharp-simple/
-├── Program.cs              # C# host using CSnakes
-├── vibevoice_tts.py        # Python TTS module (embedded via CSnakes)
-├── requirements.txt        # Python dependencies
-├── .csproj                 # Project file with CSnakes NuGet
+├── Program.cs              # C# host using ONNX Runtime
+├── .csproj                 # Project file with ONNX Runtime NuGet
 └── README.md               # Quick start guide
 ```
 
@@ -97,6 +95,19 @@ src/scenario-07-maui-mobile/
 ├── MauiProgram.cs           # MAUI app setup
 ├── VoiceLabs.Mobile.csproj  # Project file
 ├── Pages/                   # MAUI pages
+└── README.md                # Quick start guide
+```
+
+### Scenario 8: Native C# ONNX Inference
+Export VibeVoice model to ONNX subcomponents and run inference **entirely in C#** — zero Python dependency. Includes Python export tools and full C# inference pipeline. **Advanced level.**
+
+```
+src/scenario-08-onnx-native/
+├── export/                  # Python export tools (one-time use)
+├── models/                  # Exported ONNX files (gitignored)
+├── csharp/                  # C# native inference pipeline
+│   ├── Pipeline/            # Tokenizer, diffusion, decoder
+│   └── Utils/               # Audio writer, tensor helpers
 └── README.md                # Quick start guide
 ```
 
@@ -165,7 +176,7 @@ cd src/scenario-03-csharp-simple
 dotnet run
 ```
 
-CSnakes auto-downloads Python and installs dependencies on first run.
+Requires ONNX model files — see [Scenario 8](#scenario-8--native-c-onnx-inference) for export instructions.
 
 ### Scenario 4 — Real-Time Voice Conversation
 
@@ -206,6 +217,20 @@ cd src/scenario-07-maui-mobile
 dotnet run -f net10.0-windows  # Or your target platform
 ```
 
+### Scenario 8 — Native C# ONNX Inference
+
+```bash
+# One-time: export models from Python
+cd src/scenario-08-onnx-native/export
+pip install -r requirements_export.txt
+python export_model.py --output ../models
+python export_voice_presets.py --output ../models/voices
+
+# Run the C# native inference
+cd ../csharp
+dotnet run -- --text "Hello from ONNX!" --voice Carter
+```
+
 ## 📁 Project Structure
 
 ```
@@ -231,7 +256,7 @@ vibevoice-labs/
     │   ├── VoiceLabs.Web/                  # Blazor frontend
     │   └── python-api/tests/               # pytest tests
     │
-    ├── scenario-03-csharp-simple/          # Simple C# console app
+    ├── scenario-03-csharp-simple/          # Simple C# console app (ONNX)
     │   ├── Program.cs
     │   ├── VoiceLabs.ConsoleApp.csproj
     │   └── README.md
@@ -257,6 +282,12 @@ vibevoice-labs/
         ├── VoiceLabs.Mobile.csproj
         ├── Pages/
         └── README.md
+
+    └── scenario-08-onnx-native/            # Native C# ONNX inference
+        ├── export/                         # Python export tools
+        ├── models/                         # ONNX model files
+        ├── csharp/                         # C# inference pipeline
+        └── README.md
 ```
 
 ## 🔧 Tech Stack
@@ -265,6 +296,7 @@ vibevoice-labs/
 |-------|------------|---------|
 | **TTS Engine** | [VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) | Text-to-speech synthesis |
 | **TTS Package** | [VibeVoice](https://github.com/microsoft/VibeVoice) (installed from Git) | Streaming TTS inference |
+| **Native Inference** | [ONNX Runtime](https://onnxruntime.ai/) | Native C# model inference (no Python) |
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com/) + [Python](https://python.org) | REST API for TTS |
 | **Frontend** | [Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor) + [.NET 10](https://dotnet.microsoft.com/) | Interactive web UI |
 | **Orchestration** | [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/) | Service discovery & health checks |

@@ -7,6 +7,12 @@
 voices/
 *.pt
 
+# ONNX model files (too large for git — export with Python tools)
+src/scenario-08-onnx-native/models/*.onnx
+src/scenario-08-onnx-native/models/voices/
+!src/scenario-08-onnx-native/models/.gitkeep
+!src/scenario-08-onnx-native/models/README.md
+
 # User-specific files
 *.rsuser
 *.suo
