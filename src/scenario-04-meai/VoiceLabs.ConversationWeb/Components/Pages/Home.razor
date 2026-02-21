@@ -1,17 +1,13 @@
 @page "/"
 @rendermode InteractiveServer
-@using System.Net.WebSockets
-@using System.Text
 @using System.Text.Json
 @inject IHttpClientFactory HttpClientFactory
-@inject IConfiguration Configuration
 @inject IJSRuntime JS
-@implements IAsyncDisposable
 
 <div class="conversation-container">
     <div class="status-bar">
-        <div class="connection-status @(isConnected ? "connected" : (isConnecting ? "connecting" : "disconnected"))">
-            @if (isConnecting)
+        <div class="connection-status @(isReady ? "connected" : (isChecking ? "connecting" : "disconnected"))">
+            @if (isChecking)
             {
                 <span class="spinner"></span>
             }
@@ -19,7 +15,7 @@
             {
                 <span class="status-dot"></span>
             }
-            @(isConnected ? "Connected" : (isConnecting ? "Connecting..." : "Disconnected"))
+            @(isReady ? "Ready" : (isChecking ? "Checking backend..." : "Backend unavailable"))
         </div>
         <div class="voice-selector">
             <label>Voice:</label>
@@ -62,14 +58,21 @@
                 @onmouseup="StopRecording"
                 @ontouchstart="StartRecording"
                 @ontouchend="StopRecording"
-                disabled="@(!isConnected)">
+                disabled="@(!isReady || isBusy)">
             <div class="mic-icon">🎤</div>
-            <div class="mic-label">@(isRecording ? "Release to Send" : "Hold to Talk")</div>
+            <div class="mic-label">@(isRecording ? "Release to Send" : (isBusy ? "Processing..." : "Hold to Talk"))</div>
         </button>
-        
+
         <button class="test-btn" @onclick="TestConnection">
             🔌 Test Connection
         </button>
+
+        @if (messages.Count > 0)
+        {
+            <button class="test-btn reset-btn" @onclick="ResetConversation">
+                🔄 Reset
+            </button>
+        }
     </div>
 
     @if (!string.IsNullOrEmpty(errorMessage))
@@ -149,21 +152,23 @@
     .test-btn:hover {
         background: #444;
     }
+    .reset-btn {
+        background: #444;
+    }
 </style>
 
 @code {
-    private ClientWebSocket? webSocket;
-    private CancellationTokenSource? cts;
-    private bool isConnected;
-    private bool isConnecting;
+    private bool isReady;
+    private bool isChecking;
     private bool isRecording;
+    private bool isBusy;
     private string? statusText;
     private string? errorMessage;
     private string selectedVoice = "en-emma";
+    private string sessionId = Guid.NewGuid().ToString();
     private List<ChatMessage> messages = new();
     private ElementReference chatArea;
     private ElementReference consoleArea;
-    private List<byte> pendingAudioBytes = new();
     private List<string> debugLogs = new();
 
     private void LogDebug(string message)
@@ -190,27 +195,50 @@
     {
         if (firstRender)
         {
-            LogDebug("Component rendered, initiating connection...");
-            await ConnectWebSocket();
+            LogDebug("Component rendered, checking backend...");
+            await CheckBackendReady();
         }
-        // Scroll chat to bottom
         await JS.InvokeVoidAsync("eval", "document.querySelector('.chat-area')?.scrollTo(0, document.querySelector('.chat-area')?.scrollHeight)");
     }
 
-    private string GetBackendHttpUrl()
+    private async Task CheckBackendReady()
     {
-        var backendUrl = "http://localhost:8000";
-        var backendConfig = Configuration.GetSection("services:backend").GetChildren();
-        foreach (var section in backendConfig)
+        const int maxRetries = 20;
+        int attempt = 0;
+        while (attempt < maxRetries)
         {
-            var url = section.GetChildren().FirstOrDefault()?.Value;
-            if (url != null && url.StartsWith("http://"))
+            isChecking = true;
+            await InvokeAsync(StateHasChanged);
+            try
             {
-                backendUrl = url.TrimEnd('/');
-                break;
+                var client = HttpClientFactory.CreateClient("backend");
+                LogDebug($"Checking /api/ready (attempt {attempt + 1})...");
+                var resp = await client.GetAsync("/api/ready");
+                if (resp.IsSuccessStatusCode)
+                {
+                    var body = await resp.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(body);
+                    isReady = doc.RootElement.TryGetProperty("ready", out var readyProp) && readyProp.GetBoolean();
+                    LogDebug($"Backend ready: {isReady}");
+                    isChecking = false;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+                LogDebug($"Backend not ready: {(int)resp.StatusCode}");
             }
+            catch (Exception ex)
+            {
+                LogDebug($"Backend check failed: {ex.Message}");
+            }
+            isReady = false;
+            errorMessage = "Cannot reach backend. Retrying in 5s...";
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(5000);
+            attempt++;
         }
-        return backendUrl;
+        isChecking = false;
+        errorMessage = "Backend unavailable after multiple retries. Please refresh the page.";
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task TestConnection()
@@ -218,27 +246,20 @@
         LogDebug("--- Starting HTTP Connection Test ---");
         try
         {
-            var backendUrl = GetBackendHttpUrl();
-            LogDebug($"Testing HTTP connection to: {backendUrl}");
-            
-            // Use the injected HttpClientFactory to get the client configured with ServiceDefaults
             var client = HttpClientFactory.CreateClient("backend");
 
-            // Test 1: Root endpoint
             LogDebug("1. Testing Root Endpoint (/)");
             var rootResponse = await client.GetAsync("/");
             LogDebug($"   Status: {(int)rootResponse.StatusCode} {rootResponse.StatusCode}");
             var rootContent = await rootResponse.Content.ReadAsStringAsync();
             LogDebug($"   Response: {rootContent}");
 
-            // Test 2: Ping endpoint
             LogDebug("2. Testing Ping Endpoint (/api/test/ping)");
             var pingResponse = await client.GetAsync("/api/test/ping");
             LogDebug($"   Status: {(int)pingResponse.StatusCode} {pingResponse.StatusCode}");
             var pingContent = await pingResponse.Content.ReadAsStringAsync();
             LogDebug($"   Response: {pingContent}");
 
-            // Test 3: Health endpoint
             LogDebug("3. Testing Health Endpoint (/api/health)");
             var healthResponse = await client.GetAsync("/api/health");
             LogDebug($"   Status: {(int)healthResponse.StatusCode} {healthResponse.StatusCode}");
@@ -251,156 +272,13 @@
         {
             LogDebug($"HTTP Test Failed: {ex.GetType().Name} - {ex.Message}");
             if (ex.InnerException != null)
-            {
                 LogDebug($"Inner exception: {ex.InnerException.Message}");
-            }
         }
-    }
-
-    private async Task ConnectWebSocket()
-    {
-        if (isConnected || isConnecting) return;
-        
-        isConnecting = true;
-        await InvokeAsync(StateHasChanged);
-        
-        try
-        {
-            LogDebug("Resolving backend URL from configuration...");
-            // Resolve the actual backend URL from Aspire service discovery configuration.
-            // ClientWebSocket doesn't go through HttpClient's service discovery pipeline,
-            // so we read the resolved endpoint directly from configuration.
-            
-            // The backend has two endpoints: https and http.
-            // We need to find the http one to avoid SSL certificate issues with wss://
-            var backendUrl = GetBackendHttpUrl();
-            
-            LogDebug($"Resolved backend URL: {backendUrl}");
-
-            var wsUrl = backendUrl.Replace("https://", "wss://").Replace("http://", "ws://");
-            LogDebug($"WebSocket URL: {wsUrl}/ws/conversation");
-
-            webSocket = new ClientWebSocket();
-            cts = new CancellationTokenSource();
-
-            LogDebug("Initiating WebSocket connection...");
-            
-            // Add a timeout to the WebSocket connection attempt
-            using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
-            connectCts.CancelAfter(TimeSpan.FromSeconds(30));
-            
-            await webSocket.ConnectAsync(new Uri($"{wsUrl}/ws/conversation"), connectCts.Token);
-            isConnected = true;
-            isConnecting = false;
-            LogDebug("WebSocket connected successfully.");
-            await InvokeAsync(StateHasChanged);
-
-            _ = Task.Run(ReceiveLoop);
-        }
-        catch (Exception ex)
-        {
-            isConnecting = false;
-            errorMessage = $"Connection failed: {ex.Message}. Retrying in 5s...";
-            LogDebug($"Connection failed: {ex.GetType().Name} - {ex.Message}");
-            if (ex.InnerException != null)
-            {
-                LogDebug($"Inner exception: {ex.InnerException.Message}");
-            }
-            isConnected = false;
-            await InvokeAsync(StateHasChanged);
-            
-            await Task.Delay(5000);
-            await ConnectWebSocket();
-        }
-    }
-
-    private async Task ReceiveLoop()
-    {
-        var buffer = new byte[1024 * 64];
-        try
-        {
-            while (webSocket?.State == WebSocketState.Open && cts is not null && !cts.IsCancellationRequested)
-            {
-                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
-
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    LogDebug("WebSocket closed by server.");
-                    isConnected = false;
-                    await InvokeAsync(StateHasChanged);
-                    break;
-                }
-
-                if (result.MessageType == WebSocketMessageType.Text)
-                {
-                    var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await HandleTextMessage(json);
-                }
-                else if (result.MessageType == WebSocketMessageType.Binary)
-                {
-                    pendingAudioBytes.AddRange(new ArraySegment<byte>(buffer, 0, result.Count));
-                }
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (WebSocketException ex)
-        {
-            isConnected = false;
-            errorMessage = "WebSocket disconnected. Reconnecting...";
-            LogDebug($"WebSocket exception: {ex.Message}. Reconnecting in 2s...");
-            await InvokeAsync(StateHasChanged);
-            await Task.Delay(2000);
-            await ConnectWebSocket();
-        }
-    }
-
-    private async Task HandleTextMessage(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var type = doc.RootElement.GetProperty("type").GetString();
-
-            switch (type)
-            {
-                case "transcript":
-                    var userText = doc.RootElement.GetProperty("text").GetString() ?? "";
-                    messages.Add(new ChatMessage { Text = userText, IsUser = true });
-                    statusText = "Thinking...";
-                    break;
-
-                case "response":
-                    var aiText = doc.RootElement.GetProperty("text").GetString() ?? "";
-                    messages.Add(new ChatMessage { Text = aiText, IsUser = false });
-                    statusText = "Speaking...";
-                    break;
-
-                case "audio_complete":
-                    if (pendingAudioBytes.Count > 0)
-                    {
-                        var lastAiMsg = messages.LastOrDefault(m => !m.IsUser);
-                        if (lastAiMsg != null)
-                        {
-                            lastAiMsg.HasAudio = true;
-                            lastAiMsg.AudioBytes = pendingAudioBytes.ToArray();
-                        }
-                        // Auto-play the response audio
-                        await JS.InvokeVoidAsync("audioInterop.playAudio", pendingAudioBytes.ToArray());
-                        pendingAudioBytes.Clear();
-                    }
-                    statusText = null;
-                    break;
-            }
-
-            await InvokeAsync(StateHasChanged);
-        }
-        catch { }
     }
 
     private async Task StartRecording()
     {
-        if (!isConnected || isRecording) return;
-
+        if (!isReady || isRecording || isBusy) return;
         try
         {
             await JS.InvokeVoidAsync("audioInterop.startRecording");
@@ -416,59 +294,134 @@
     private async Task StopRecording()
     {
         if (!isRecording) return;
-
         try
         {
             isRecording = false;
+            isBusy = true;
             statusText = "Processing...";
             StateHasChanged();
 
             var audioData = await JS.InvokeAsync<byte[]>("audioInterop.stopRecording");
-
-            if (webSocket?.State == WebSocketState.Open && audioData?.Length > 0)
+            if (audioData?.Length > 0)
             {
-                // Send audio binary frame
-                await webSocket.SendAsync(
-                    new ArraySegment<byte>(audioData),
-                    WebSocketMessageType.Binary,
-                    true,
-                    cts?.Token ?? CancellationToken.None);
-
-                // Send end_audio signal
-                var endSignal = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "end_of_speech" }));
-                await webSocket.SendAsync(
-                    new ArraySegment<byte>(endSignal),
-                    WebSocketMessageType.Text,
-                    true,
-                    cts?.Token ?? CancellationToken.None);
-
-                statusText = "Thinking...";
+                await SendConversationRequest(audioData);
+            }
+            else
+            {
+                statusText = null;
+                isBusy = false;
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to send audio: {ex.Message}";
+            errorMessage = $"Failed to process audio: {ex.Message}";
             statusText = null;
+            isBusy = false;
         }
+    }
+
+    private async Task SendConversationRequest(byte[] audioData)
+    {
+        try
+        {
+            LogDebug($"Sending {audioData.Length} bytes of audio to /api/conversation");
+            var client = HttpClientFactory.CreateClient("backend");
+
+            using var content = new MultipartFormDataContent();
+            content.Add(new ByteArrayContent(audioData)
+            {
+                Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("audio/webm") }
+            }, "audio", "audio.webm");
+            content.Add(new StringContent(selectedVoice), "voice_id");
+            content.Add(new StringContent(sessionId), "session_id");
+
+            statusText = "Thinking...";
+            await InvokeAsync(StateHasChanged);
+
+            var response = await client.PostAsync("/api/conversation", content);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = $"Backend error: {(int)response.StatusCode} - {body}";
+                LogDebug($"Conversation request failed: {(int)response.StatusCode} {body}");
+                return;
+            }
+
+            LogDebug($"Response received ({body.Length} chars)");
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out var errProp))
+            {
+                errorMessage = errProp.GetString();
+                LogDebug($"Backend error: {errorMessage}");
+                return;
+            }
+
+            var transcript = root.TryGetProperty("transcript", out var tp) ? tp.GetString() ?? "" : "";
+            var responseText = root.TryGetProperty("response_text", out var rp) ? rp.GetString() ?? "" : "";
+            var audioBase64 = root.TryGetProperty("audio_base64", out var ap) ? ap.GetString() ?? "" : "";
+
+            messages.Add(new ChatMessage { Text = transcript, IsUser = true });
+
+            byte[]? wavBytes = null;
+            if (!string.IsNullOrEmpty(audioBase64))
+            {
+                wavBytes = Convert.FromBase64String(audioBase64);
+            }
+
+            messages.Add(new ChatMessage
+            {
+                Text = responseText,
+                IsUser = false,
+                HasAudio = wavBytes is { Length: > 0 },
+                AudioBytes = wavBytes,
+            });
+
+            statusText = "Speaking...";
+            await InvokeAsync(StateHasChanged);
+
+            if (wavBytes is { Length: > 0 })
+            {
+                await JS.InvokeVoidAsync("audioInterop.playAudio", wavBytes);
+            }
+
+            statusText = null;
+            LogDebug("Conversation turn complete.");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Conversation failed: {ex.Message}";
+            LogDebug($"Exception: {ex.GetType().Name} - {ex.Message}");
+        }
+        finally
+        {
+            isBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ResetConversation()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("backend");
+            await client.DeleteAsync($"/api/conversation/{sessionId}");
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"Reset session delete failed (non-critical): {ex.Message}");
+        }
+        sessionId = Guid.NewGuid().ToString();
+        messages.Clear();
+        statusText = null;
+        errorMessage = null;
+        LogDebug("Conversation reset.");
     }
 
     private async Task PlayAudio(byte[] audioBytes)
     {
         await JS.InvokeVoidAsync("audioInterop.playAudio", audioBytes);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        cts?.Cancel();
-        if (webSocket?.State == WebSocketState.Open)
-        {
-            try
-            {
-                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-            }
-            catch { }
-        }
-        webSocket?.Dispose();
-        cts?.Dispose();
     }
 }

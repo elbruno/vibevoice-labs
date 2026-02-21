@@ -211,6 +211,7 @@ async def root():
             "ready": "/api/ready",
             "warmup": "/api/warmup",
             "voices": "/api/voices",
+            "conversation": "/api/conversation",
             "test_ping": "/api/test/ping",
             "test_echo": "/api/test/echo",
             "test_headers": "/api/test/headers",

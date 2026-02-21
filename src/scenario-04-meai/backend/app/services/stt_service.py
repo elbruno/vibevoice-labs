@@ -2,7 +2,6 @@
 STT Service - Speech-to-text using NVIDIA Parakeet or faster-whisper fallback.
 """
 
-import io
 import os
 import tempfile
 import logging
@@ -72,20 +71,60 @@ class STTService:
             sf.write(tmp_path, audio_array, 16000, format="WAV")
 
         try:
-            if cls._backend == "nemo":
-                result = cls._model.transcribe([tmp_path])
-                # NeMo returns list of transcriptions
-                if isinstance(result, list) and len(result) > 0:
-                    text = result[0] if isinstance(result[0], str) else str(result[0])
-                else:
-                    text = str(result)
-            elif cls._backend == "faster-whisper":
-                segments, _ = cls._model.transcribe(tmp_path, language="en")
-                text = " ".join(seg.text for seg in segments).strip()
-            else:
-                text = ""
-
-            logger.info(f"Transcribed: '{text[:80]}...'")
-            return text
+            return cls._transcribe_file(tmp_path)
         finally:
             os.unlink(tmp_path)
+
+    @classmethod
+    def transcribe_upload(cls, audio_bytes: bytes, content_type: str = "audio/webm") -> str:
+        """Transcribe audio bytes from a browser upload (any format supported by ffmpeg).
+
+        Unlike :meth:`transcribe`, this method writes the raw bytes directly to a
+        temporary file so that faster-whisper / NeMo can decode them via ffmpeg,
+        which handles audio/webm, audio/ogg, audio/mp4, audio/wav, etc.
+        """
+        if not cls.is_available():
+            raise RuntimeError("STT service not initialized")
+
+        # Reject unreasonably large uploads (max 50 MB) to prevent disk exhaustion
+        max_bytes = 50 * 1024 * 1024
+        if len(audio_bytes) > max_bytes:
+            raise ValueError(f"Audio upload too large ({len(audio_bytes)} bytes, max {max_bytes})")
+
+        # Pick a sensible file extension so the decoder recognises the container
+        ext_map = {
+            "audio/webm": ".webm",
+            "audio/ogg": ".ogg",
+            "audio/mp4": ".mp4",
+            "audio/wav": ".wav",
+            "audio/x-wav": ".wav",
+            "audio/mpeg": ".mp3",
+        }
+        ext = ext_map.get(content_type.split(";")[0].strip().lower(), ".webm")
+
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        try:
+            return cls._transcribe_file(tmp_path)
+        finally:
+            os.unlink(tmp_path)
+
+    @classmethod
+    def _transcribe_file(cls, tmp_path: str) -> str:
+        """Run the underlying STT model on a file path and return the transcript."""
+        if cls._backend == "nemo":
+            result = cls._model.transcribe([tmp_path])
+            if isinstance(result, list) and len(result) > 0:
+                text = result[0] if isinstance(result[0], str) else str(result[0])
+            else:
+                text = str(result)
+        elif cls._backend == "faster-whisper":
+            segments, _ = cls._model.transcribe(tmp_path, language="en")
+            text = " ".join(seg.text for seg in segments).strip()
+        else:
+            text = ""
+
+        logger.info(f"Transcribed: '{text[:80]}...'")
+        return text
