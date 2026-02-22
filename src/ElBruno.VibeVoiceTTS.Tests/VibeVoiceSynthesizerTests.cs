@@ -33,29 +33,45 @@ public class VibeVoiceSynthesizerTests
     }
 
     [Fact]
-    public void GetAvailableVoices_ReturnsFriendlyNames()
+    public void GetAvailableVoices_ReturnsOnlyDownloadedVoices()
     {
         using var tts = new VibeVoiceSynthesizer();
         string[] voices = tts.GetAvailableVoices();
-        Assert.NotEmpty(voices);
-        Assert.Contains("Carter", voices);
-        Assert.Contains("Emma", voices);
-        Assert.DoesNotContain("en-Carter_man", voices);
+        // Only Carter and Emma are downloaded by default
+        Assert.DoesNotContain("en-Carter_man", voices); // Should be friendly names
+        // Voices returned should be a subset of supported voices
+        string[] supported = tts.GetSupportedVoices();
+        foreach (var v in voices)
+            Assert.Contains(v, supported);
     }
 
     [Fact]
-    public void GetAvailableVoiceDetails_ReturnsAllPresets()
+    public void GetSupportedVoices_ReturnsAllSixPresets()
     {
         using var tts = new VibeVoiceSynthesizer();
-        VoiceInfo[] details = tts.GetAvailableVoiceDetails();
+        string[] voices = tts.GetSupportedVoices();
+        Assert.Equal(6, voices.Length);
+        Assert.Contains("Carter", voices);
+        Assert.Contains("Davis", voices);
+        Assert.Contains("Emma", voices);
+        Assert.Contains("Frank", voices);
+        Assert.Contains("Grace", voices);
+        Assert.Contains("Mike", voices);
+    }
+
+    [Fact]
+    public void GetSupportedVoiceDetails_ReturnsAllSixPresets()
+    {
+        using var tts = new VibeVoiceSynthesizer();
+        VoiceInfo[] details = tts.GetSupportedVoiceDetails();
         Assert.Equal(6, details.Length);
     }
 
     [Fact]
-    public void GetAvailableVoiceDetails_ContainsCorrectMetadata()
+    public void GetSupportedVoiceDetails_ContainsCorrectMetadata()
     {
         using var tts = new VibeVoiceSynthesizer();
-        VoiceInfo[] details = tts.GetAvailableVoiceDetails();
+        VoiceInfo[] details = tts.GetSupportedVoiceDetails();
 
         var carter = details.First(v => v.Name == "Carter");
         Assert.Equal("en-Carter_man", carter.InternalName);

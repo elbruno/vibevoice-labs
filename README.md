@@ -56,18 +56,24 @@ float[] audio2 = await tts.GenerateAudioAsync("Hello!", "en-Carter_man"); // als
 ### 3) Discover available voices
 
 ```csharp
-// Simple: get voice names
-string[] voices = tts.GetAvailableVoices();
+// Voices currently downloaded on disk
+string[] available = tts.GetAvailableVoices();
+// → ["Carter", "Emma"]  (default download includes Carter and Emma)
+
+// All supported voices (including those not yet downloaded)
+string[] supported = tts.GetSupportedVoices();
 // → ["Carter", "Davis", "Emma", "Frank", "Grace", "Mike"]
 
-// Detailed: get full voice metadata
-VoiceInfo[] details = tts.GetAvailableVoiceDetails();
+// Detailed metadata for all supported voices
+VoiceInfo[] details = tts.GetSupportedVoiceDetails();
 foreach (var voice in details)
-    Console.WriteLine($"{voice.Name} ({voice.Gender}, {voice.Language}) — internal: {voice.InternalName}");
-// → Carter (man, en) — internal: en-Carter_man
-// → Emma (woman, en) — internal: en-Emma_woman
-// ...
+    Console.WriteLine($"{voice.Name} ({voice.Gender}, {voice.Language})");
 ```
+
+> **💡 On-demand voice download:** Only Carter and Emma are downloaded by default with `EnsureModelAvailableAsync()`. Other voices (Davis, Frank, Grace, Mike) are **automatically downloaded on first use** when you call `GenerateAudioAsync()`. You can also pre-download a specific voice:
+> ```csharp
+> await tts.EnsureVoiceAvailableAsync("Davis", progress);
+> ```
 
 ### 4) Track download progress
 
@@ -166,7 +172,7 @@ builder.Services.AddVibeVoice(options =>
 | Grace | Female | `VibeVoicePreset.Grace` | `en-Grace_woman` |
 | Mike | Male | `VibeVoicePreset.Mike` | `en-Mike_man` |
 
-> **⚡ Migration note:** In versions prior to 0.2.0, `GetAvailableVoices()` returned internal names (e.g. `"en-Carter_man"`). Starting with 0.2.0, it returns friendly names (e.g. `"Carter"`). Both formats continue to work with `GenerateAudioAsync()`. Use `GetAvailableVoiceDetails()` if you need the internal names, language, or gender metadata.
+> **⚡ Migration note:** In versions prior to 0.2.0, `GetAvailableVoices()` returned all 6 voices regardless of download status. Starting with 0.2.0, it returns only voices **actually downloaded on disk**. Use `GetSupportedVoices()` to see all 6 known presets. Voices are auto-downloaded on first use with `GenerateAudioAsync()`, or pre-download with `EnsureVoiceAvailableAsync("Davis")`.
 
 **Language support:** The model is primarily trained on **English**, with experimental multilingual capabilities (e.g., Spanish, French, German). Results may vary for non-English text.
 
