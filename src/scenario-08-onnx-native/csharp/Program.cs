@@ -19,7 +19,7 @@ Console.WriteLine();
 // Parse CLI Arguments
 // =============================================================================
 
-string text = "Hello! Welcome to VibeVoice Labs. This is a demonstration of native ONNX Runtime inference running entirely in C sharp.";
+string text = "Hello! Welcome to VibeVoiceTTS. This is a demonstration of native ONNX Runtime inference running entirely in C sharp.";
 string voice = "Carter";
 string outputPath = "output.wav";
 string? modelsDir = null;

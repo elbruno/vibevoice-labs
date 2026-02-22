@@ -1,4 +1,4 @@
-# 🎙️ VibeVoice Labs
+# 🎙️ VibeVoiceTTS
 
 [![NuGet](https://img.shields.io/nuget/v/ElBruno.VibeVoiceTTS.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.VibeVoiceTTS.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS)
@@ -36,7 +36,7 @@ using ElBruno.VibeVoiceTTS;
 using var tts = new VibeVoiceSynthesizer();
 await tts.EnsureModelAvailableAsync(); // auto-downloads ~1.5 GB on first run
 
-float[] audio = await tts.GenerateAudioAsync("Hello! Welcome to VibeVoice Labs.", "Carter");
+float[] audio = await tts.GenerateAudioAsync("Hello! Welcome to VibeVoiceTTS.", "Carter");
 tts.SaveWav("output.wav", audio);
 ```
 

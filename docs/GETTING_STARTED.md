@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks you through setting up and running VibeVoice Labs.
+This guide walks you through setting up and running VibeVoiceTTS.
 
 ## Prerequisites
 
@@ -112,7 +112,7 @@ Downloading voice presets (first run only)...
   Downloading en-Carter_man.pt...
 Loading VibeVoice-Realtime-0.5B model...
 Model loaded successfully on cpu!
-Generating audio for: 'Hello! Welcome to VibeVoice Labs...'
+Generating audio for: 'Hello! Welcome to VibeVoiceTTS...'
 Saving audio to output.wav...
 
 Audio generated successfully!
@@ -299,7 +299,7 @@ dotnet run
 
 🗣️  Step 1: Configuration
    Voice:      Carter
-📝 Text:       "Hello! Welcome to VibeVoice Labs..."
+📝 Text:       "Hello! Welcome to VibeVoiceTTS..."
 
 🔍 Step 2: Checking ONNX model files...
    ✅ text_encoder.onnx (400.0 MB)

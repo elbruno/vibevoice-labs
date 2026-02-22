@@ -1,6 +1,6 @@
 # API Reference
 
-This document provides complete documentation for the VibeVoice Labs REST API.
+This document provides complete documentation for the VibeVoiceTTS REST API.
 
 ## Base URL
 

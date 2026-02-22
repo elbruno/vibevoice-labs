@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the system architecture of VibeVoice Labs across all 8 scenarios.
+This document describes the system architecture of VibeVoiceTTS across all 8 scenarios.
 
 ## Scenario Architectures at a Glance
 
@@ -1064,7 +1064,7 @@ stream_output.wav  (~5 MB for typical demo text)
 | **Chunk Size** | ~2-4 KB each | Frequent updates, smooth streaming |
 
 **Real-Time Factor Example:**
-- Text: "Hello, welcome to VibeVoice Labs." (4 seconds of audio)
+- Text: "Hello, welcome to VibeVoiceTTS." (4 seconds of audio)
 - Generation: 2 seconds wall-clock time
 - **RTF = 4 / 2 = 2×** (generated in half the playback time)
 

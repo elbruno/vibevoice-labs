@@ -36,13 +36,13 @@ Console.WriteLine();
 // Define sentences in multiple languages
 var samples = new[]
 {
-    ("Hello! Welcome to VibeVoice Labs.",
+    ("Hello! Welcome to VibeVoiceTTS.",
      VibeVoicePreset.Carter, "output_carter.wav", "English (Carter)"),
 
     ("This is a text to speech demo.",
      VibeVoicePreset.Emma, "output_emma.wav", "English (Emma)"),
 
-    ("Hola! Bienvenidos a VibeVoice Labs.",
+    ("Hola! Bienvenidos a VibeVoiceTTS.",
      VibeVoicePreset.Carter, "output_spanish.wav", "Spanish (Carter)"),
 };
 

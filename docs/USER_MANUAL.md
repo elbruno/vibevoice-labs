@@ -1,6 +1,6 @@
-# VibeVoice Labs User Manual
+# VibeVoiceTTS User Manual
 
-Welcome to **VibeVoice Labs**, a showcase project demonstrating Microsoft's VibeVoice Text-to-Speech (TTS) capabilities using Python and .NET technologies.
+Welcome to **VibeVoiceTTS**, a showcase project demonstrating Microsoft's VibeVoice Text-to-Speech (TTS) capabilities using Python and .NET technologies.
 
 ---
 
@@ -26,7 +26,7 @@ Welcome to **VibeVoice Labs**, a showcase project demonstrating Microsoft's Vibe
 
 ## Introduction
 
-VibeVoice Labs demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B model into applications. The project includes **7 scenarios** showcasing different use cases:
+VibeVoiceTTS demonstrates how to integrate Microsoft's VibeVoice-Realtime-0.5B model into applications. The project includes **7 scenarios** showcasing different use cases:
 
 - **Scenario 1:** Minimal Python script for learning TTS basics
 - **Scenario 2:** Full-stack web application with Blazor UI, FastAPI backend, and .NET Aspire
@@ -122,7 +122,7 @@ python main.py
 ```
 Loading VibeVoice-Realtime-0.5B model...
 Model loaded successfully!
-Generating audio for: 'Hello! Welcome to VibeVoice Labs...'
+Generating audio for: 'Hello! Welcome to VibeVoiceTTS...'
 Saving audio to output.wav...
 
 ✅ Audio generated successfully!
@@ -570,7 +570,7 @@ VibeVoice uses pre-computed voice preset files (.pt) for each speaker. Voice pre
 
 ## FAQ
 
-**Q: What TTS model does VibeVoice Labs use?**  
+**Q: What TTS model does VibeVoiceTTS use?**  
 A: Microsoft's VibeVoice-Realtime-0.5B, a 0.5 billion parameter model optimized for real-time speech synthesis with ~300ms latency.
 
 **Q: Can I use my own voice samples?**  

@@ -1,4 +1,4 @@
-# VibeVoice Labs - FastAPI Backend
+# VibeVoiceTTS - FastAPI Backend
 
 A REST API for text-to-speech using VibeVoice-Realtime-0.5B.
 
