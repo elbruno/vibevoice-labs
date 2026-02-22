@@ -83,4 +83,24 @@ public class IntegrationTests
 
         Assert.True(gotReport, "Should receive at least one progress report");
     }
+
+    [SkippableFact]
+    public async Task GenerateAudio_DirectML_ProducesNonSilentOutput()
+    {
+        Skip.IfNot(ModelsAvailable, "ONNX models not available locally");
+
+        using var tts = new VibeVoiceSynthesizer(new VibeVoiceOptions
+        {
+            DiffusionSteps = 5,
+            ExecutionProvider = ExecutionProvider.DirectML,
+        });
+
+        float[] audio = await tts.GenerateAudioAsync("Hello", VibeVoicePreset.Carter);
+
+        Assert.NotNull(audio);
+        Assert.True(audio.Length > 0, "DirectML audio should have samples");
+
+        double rms = Math.Sqrt(audio.Select(x => (double)x * x).Average());
+        Assert.True(rms > 0.001, $"DirectML audio RMS ({rms:F6}) should be > 0.001 (not silent)");
+    }
 }
