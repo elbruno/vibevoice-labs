@@ -11,14 +11,20 @@ Actual model architecture (from model inspection):
   tts_eos_classifier              — BinaryClassifier (0.8M)
   model.model.tts_input_types     — Embedding(2, 896) type embeddings
 
-Exported ONNX files (autoregressive pipeline):
-  - language_model.onnx      — text encoder: tokens → hidden states
-  - tts_language_model.onnx  — TTS backbone: embeds → hidden states (no KV-cache)
-  - prediction_head.onnx     — diffusion head: (noisy, timestep, condition) → predicted
-  - acoustic_decoder.onnx    — σ-VAE decoder: latents → waveform
-  - acoustic_connector.onnx  — speech latent → embedding (64 → 896)
-  - eos_classifier.onnx      — hidden state → end-of-speech logit
-  - type_embeddings.npy       — [2, 896] type embeddings (0=speech, 1=text)
+Exported ONNX files (autoregressive pipeline with KV-cache):
+  - lm_with_kv.onnx           — language model with KV-cache: tokens + past → hidden + updated KV
+  - tts_lm_prefill.onnx       — TTS-LM multi-token prefill with KV-cache: embeds + past → hidden + KV
+  - tts_lm_step.onnx          — TTS-LM single-token step with KV-cache: embed + past → hidden + KV
+  - prediction_head.onnx       — diffusion head: (noisy, timestep, condition) → predicted
+  - acoustic_decoder.onnx      — σ-VAE decoder: latents → waveform
+  - acoustic_connector.onnx    — speech latent → embedding (64 → 896)
+  - eos_classifier.onnx        — hidden state → end-of-speech logit
+  - type_embeddings.npy        — [2, 896] type embeddings (0=speech, 1=text)
+
+Legacy (not used by C# pipeline, kept for reference):
+  - language_model.onnx        — text encoder without KV-cache
+  - tts_language_model.onnx    — TTS backbone without KV-cache
+  - text_to_condition.onnx     — fused model (broken for speech, kept for compat)
 
 Usage:
     python export_model.py --output ../models
@@ -35,6 +41,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
+from transformers.cache_utils import DynamicCache
 
 # Force legacy ONNX export (PyTorch 2.x defaults to torch.export which fails
 # on complex models with dynamic control flow)
@@ -48,8 +55,15 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 MODEL_NAME = "microsoft/VibeVoice-Realtime-0.5B"
-ONNX_OPSET = 17
+ONNX_OPSET = 18
 SAMPLE_RATE = 24_000
+
+# KV-cache model dimensions (from model architecture)
+NUM_TTS_LAYERS = 20
+NUM_LM_LAYERS = 4
+NUM_KV_HEADS = 2
+HEAD_DIM = 64
+HIDDEN = 896
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +176,48 @@ class AcousticDecoderWrapper(nn.Module):
 
     def forward(self, latent: torch.Tensor) -> torch.Tensor:
         return self.dec(latent)
+
+
+class KVWrapper(nn.Module):
+    """Base wrapper for models with KV-cache support."""
+
+    def __init__(self, model, num_layers, is_embedding_input=True):
+        super().__init__()
+        self.model = model
+        self.num_layers = num_layers
+        self.is_embedding_input = is_embedding_input
+
+    def _run(self, first_input, attention_mask, position_ids, past_keys, past_values):
+        past_key_values = DynamicCache()
+        for i in range(self.num_layers):
+            past_key_values.update(past_keys[i:i+1].squeeze(0), past_values[i:i+1].squeeze(0), i)
+        kwargs = {'attention_mask': attention_mask, 'past_key_values': past_key_values, 'use_cache': True}
+        if position_ids is not None:
+            kwargs['position_ids'] = position_ids
+        if self.is_embedding_input:
+            kwargs['inputs_embeds'] = first_input
+        else:
+            kwargs['input_ids'] = first_input
+        outputs = self.model(**kwargs)
+        hidden = outputs.last_hidden_state
+        new_kv = outputs.past_key_values
+        pk = torch.stack([new_kv[i][0] for i in range(self.num_layers)])
+        pv = torch.stack([new_kv[i][1] for i in range(self.num_layers)])
+        return hidden, pk, pv
+
+
+class TtsLmKV(KVWrapper):
+    """TTS language model with KV-cache (embedding input)."""
+
+    def forward(self, inputs_embeds, attention_mask, position_ids, past_keys, past_values):
+        return self._run(inputs_embeds, attention_mask, position_ids, past_keys, past_values)
+
+
+class LmKV(KVWrapper):
+    """Language model with KV-cache (token ID input)."""
+
+    def forward(self, input_ids, attention_mask, past_keys, past_values):
+        return self._run(input_ids, attention_mask, None, past_keys, past_values)
 
 
 # ---------------------------------------------------------------------------
@@ -453,6 +509,119 @@ def export_eos_classifier(model, output_dir: Path, device: str) -> bool:
     )
 
 
+def export_tts_lm_prefill(model, output_dir: Path, device: str) -> bool:
+    """Export TTS language model for multi-token prefill with KV-cache.
+
+    Used for the initial text conditioning pass: processes all text tokens
+    at once and produces the first KV-cache state.
+    """
+    tts_lm = model.model.tts_language_model
+    wrapper = TtsLmKV(tts_lm, NUM_TTS_LAYERS, is_embedding_input=True)
+    wrapper.eval()
+
+    TEXT_LEN = 12
+    PAST_SEQ = 316
+    inputs_embeds = torch.randn(1, TEXT_LEN, HIDDEN, device=device)
+    attention_mask = torch.ones(1, PAST_SEQ + TEXT_LEN, dtype=torch.long, device=device)
+    position_ids = torch.arange(PAST_SEQ, PAST_SEQ + TEXT_LEN, device=device).unsqueeze(0)
+    past_keys = torch.zeros(NUM_TTS_LAYERS, 1, NUM_KV_HEADS, PAST_SEQ, HEAD_DIM, device=device)
+    past_values = torch.zeros(NUM_TTS_LAYERS, 1, NUM_KV_HEADS, PAST_SEQ, HEAD_DIM, device=device)
+
+    return _export_onnx(
+        module=wrapper,
+        dummy_inputs=(inputs_embeds, attention_mask, position_ids, past_keys, past_values),
+        input_names=["inputs_embeds", "attention_mask", "position_ids", "past_keys", "past_values"],
+        output_names=["hidden_states", "new_keys", "new_values"],
+        dynamic_axes={
+            "inputs_embeds": {0: "batch", 1: "seq_len"},
+            "attention_mask": {0: "batch", 1: "total_len"},
+            "position_ids": {0: "batch", 1: "seq_len"},
+            "past_keys": {2: "batch", 3: "past_seq"},
+            "past_values": {2: "batch", 3: "past_seq"},
+            "hidden_states": {0: "batch", 1: "seq_len"},
+            "new_keys": {2: "batch", 3: "new_seq"},
+            "new_values": {2: "batch", 3: "new_seq"},
+        },
+        output_path=output_dir / "tts_lm_prefill.onnx",
+        component_name="tts_lm_prefill (KV-cache, 434M)",
+    )
+
+
+def export_tts_lm_step(model, output_dir: Path, device: str) -> bool:
+    """Export TTS language model for single-token step with KV-cache.
+
+    Used in the autoregressive loop: processes one new speech token at a time
+    using the cached key/values from previous steps.
+    """
+    tts_lm = model.model.tts_language_model
+    wrapper = TtsLmKV(tts_lm, NUM_TTS_LAYERS, is_embedding_input=True)
+    wrapper.eval()
+
+    PAST_SEQ = 316
+    TEXT_LEN = 12
+    STEP_PAST = PAST_SEQ + TEXT_LEN
+    inputs_embeds = torch.randn(1, 1, HIDDEN, device=device)
+    attention_mask = torch.ones(1, STEP_PAST + 1, dtype=torch.long, device=device)
+    position_ids = torch.tensor([[STEP_PAST]], dtype=torch.long, device=device)
+    past_keys = torch.zeros(NUM_TTS_LAYERS, 1, NUM_KV_HEADS, STEP_PAST, HEAD_DIM, device=device)
+    past_values = torch.zeros(NUM_TTS_LAYERS, 1, NUM_KV_HEADS, STEP_PAST, HEAD_DIM, device=device)
+
+    return _export_onnx(
+        module=wrapper,
+        dummy_inputs=(inputs_embeds, attention_mask, position_ids, past_keys, past_values),
+        input_names=["inputs_embeds", "attention_mask", "position_ids", "past_keys", "past_values"],
+        output_names=["hidden_states", "new_keys", "new_values"],
+        dynamic_axes={
+            "inputs_embeds": {0: "batch", 1: "seq_len"},
+            "attention_mask": {0: "batch", 1: "total_len"},
+            "position_ids": {0: "batch", 1: "seq_len"},
+            "past_keys": {2: "batch", 3: "past_seq"},
+            "past_values": {2: "batch", 3: "past_seq"},
+            "hidden_states": {0: "batch", 1: "seq_len"},
+            "new_keys": {2: "batch", 3: "new_seq"},
+            "new_values": {2: "batch", 3: "new_seq"},
+        },
+        output_path=output_dir / "tts_lm_step.onnx",
+        component_name="tts_lm_step (KV-cache, single token)",
+    )
+
+
+def export_lm_with_kv(model, processor, output_dir: Path, device: str) -> bool:
+    """Export language model with KV-cache.
+
+    Used for text encoding with KV-cache support, enabling incremental
+    processing of input tokens.
+    """
+    lm = model.model.language_model
+    wrapper = LmKV(lm, NUM_LM_LAYERS, is_embedding_input=False)
+    wrapper.eval()
+
+    TEXT_LEN = 12
+    LM_PAST = 108
+    input_ids = torch.randint(0, processor.tokenizer.vocab_size, (1, TEXT_LEN), device=device)
+    attention_mask = torch.ones(1, LM_PAST + TEXT_LEN, dtype=torch.long, device=device)
+    past_keys = torch.zeros(NUM_LM_LAYERS, 1, NUM_KV_HEADS, LM_PAST, HEAD_DIM, device=device)
+    past_values = torch.zeros(NUM_LM_LAYERS, 1, NUM_KV_HEADS, LM_PAST, HEAD_DIM, device=device)
+
+    return _export_onnx(
+        module=wrapper,
+        dummy_inputs=(input_ids, attention_mask, past_keys, past_values),
+        input_names=["input_ids", "attention_mask", "past_keys", "past_values"],
+        output_names=["hidden_states", "new_keys", "new_values"],
+        dynamic_axes={
+            "input_ids": {0: "batch", 1: "seq_len"},
+            "attention_mask": {0: "batch", 1: "total_len"},
+            "past_keys": {2: "batch", 3: "past_seq"},
+            "past_values": {2: "batch", 3: "past_seq"},
+            "hidden_states": {0: "batch", 1: "seq_len"},
+            "new_keys": {2: "batch", 3: "new_seq"},
+            "new_values": {2: "batch", 3: "new_seq"},
+        },
+        output_path=output_dir / "lm_with_kv.onnx",
+        component_name="lm_with_kv (Qwen2, 196M, KV-cache)",
+    )
+
+
 def save_type_embeddings(model, output_dir: Path):
     """Save tts_input_types embedding weights as numpy array.
     Shape: [2, 896] — index 0 = speech type, index 1 = text type.
@@ -536,6 +705,11 @@ def main():
         results["acoustic_decoder"] = export_acoustic_decoder(model, output_dir, args.device)
         results["acoustic_connector"] = export_acoustic_connector(model, output_dir, args.device)
         results["eos_classifier"] = export_eos_classifier(model, output_dir, args.device)
+
+        # KV-cache models for autoregressive pipeline
+        results["tts_lm_prefill"] = export_tts_lm_prefill(model, output_dir, args.device)
+        results["tts_lm_step"] = export_tts_lm_step(model, output_dir, args.device)
+        results["lm_with_kv"] = export_lm_with_kv(model, processor, output_dir, args.device)
 
     save_type_embeddings(model, output_dir)
     save_tokenizer(processor, output_dir)

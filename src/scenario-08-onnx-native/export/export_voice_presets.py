@@ -1,23 +1,33 @@
 #!/usr/bin/env python3
 """
-Convert VibeVoice voice presets (.pt) to NumPy arrays (.npy) for C# consumption.
+Export VibeVoice voice presets as KV-cache numpy arrays for C# consumption.
 
-Downloads voice presets from the official VibeVoice GitHub repo (if not cached
-locally), inspects their tensor structure, and writes each tensor as a separate
-.npy file alongside a manifest.json that the C# pipeline reads at startup.
+The autoregressive pipeline requires pre-computed KV-cache data for each voice.
+This script loads the VibeVoice model, runs each voice preset through the
+language model and TTS language model to generate the KV-cache state, then
+saves the per-layer key/value tensors as .npy files.
+
+Output structure per voice:
+    voices/{voice_name}/
+        metadata.json                    # Voice info + tensor shapes
+        tts_kv_key_{0..19}.npy          # TTS-LM positive KV-cache keys (20 layers)
+        tts_kv_value_{0..19}.npy        # TTS-LM positive KV-cache values (20 layers)
+        lm_kv_key_{0..3}.npy           # LM KV-cache keys (4 layers)
+        lm_kv_value_{0..3}.npy         # LM KV-cache values (4 layers)
+        negative/
+            tts_kv_key_{0..19}.npy      # TTS-LM negative KV-cache keys
+            tts_kv_value_{0..19}.npy    # TTS-LM negative KV-cache values
 
 Usage:
     python export_voice_presets.py --output ../models/voices
-    python export_voice_presets.py --voices-dir ./my_voices --output ../models/voices
+    python export_voice_presets.py --output ../models/voices --device cuda
 """
 
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
-from urllib.request import urlretrieve
 
 import numpy as np
 import torch
@@ -28,6 +38,10 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+MODEL_NAME = "microsoft/VibeVoice-Realtime-0.5B"
+NUM_TTS_LAYERS = 20
+NUM_LM_LAYERS = 4
 
 VOICE_BASE_URL = (
     "https://raw.githubusercontent.com/microsoft/VibeVoice/main/"
@@ -46,11 +60,11 @@ AVAILABLE_VOICES = [
 
 def download_voice(name: str, dest_dir: Path) -> Path:
     """Download a single voice preset if not already present."""
+    from urllib.request import urlretrieve
     dest = dest_dir / name
     if dest.exists():
         log.info("  ↳ %s already cached", name)
         return dest
-
     url = VOICE_BASE_URL + name
     log.info("  ↳ Downloading %s …", url)
     try:
@@ -63,7 +77,7 @@ def download_voice(name: str, dest_dir: Path) -> Path:
 
 
 def ensure_voices(voices_dir: Path) -> list[Path]:
-    """Make sure all voice presets are available locally.  Returns paths."""
+    """Make sure all voice presets are available locally."""
     voices_dir.mkdir(parents=True, exist_ok=True)
     paths = []
     for name in AVAILABLE_VOICES:
@@ -74,47 +88,44 @@ def ensure_voices(voices_dir: Path) -> list[Path]:
     return paths
 
 
-def inspect_preset(data) -> dict:
-    """Recursively describe the structure of a voice preset."""
-    if isinstance(data, torch.Tensor):
-        return {
-            "type": "tensor",
-            "dtype": str(data.dtype),
-            "shape": list(data.shape),
-        }
-    if isinstance(data, dict):
-        return {k: inspect_preset(v) for k, v in data.items()}
-    if isinstance(data, (list, tuple)):
-        return [inspect_preset(v) for v in data]
-    return {"type": type(data).__name__, "value": repr(data)[:200]}
+def load_model(device: str):
+    """Load the VibeVoice model and processor."""
+    from vibevoice.modular.modeling_vibevoice_streaming_inference import (
+        VibeVoiceStreamingForConditionalGenerationInference,
+    )
+    from vibevoice.processor.vibevoice_streaming_processor import (
+        VibeVoiceStreamingProcessor,
+    )
+
+    log.info("Loading model from %s …", MODEL_NAME)
+    processor = VibeVoiceStreamingProcessor.from_pretrained(MODEL_NAME)
+    model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+        MODEL_NAME,
+        torch_dtype=torch.float32,
+        attn_implementation="eager",
+        device_map=device,
+    )
+    model.eval()
+    return model, processor
 
 
-def _flatten_tensors(data, prefix: str = "") -> list[tuple[str, torch.Tensor]]:
-    """Recursively extract (key_path, tensor) pairs from a nested structure."""
-    pairs = []
-    if isinstance(data, torch.Tensor):
-        pairs.append((prefix or "root", data))
-    elif isinstance(data, dict):
-        for k, v in data.items():
-            child_key = f"{prefix}.{k}" if prefix else str(k)
-            pairs.extend(_flatten_tensors(v, child_key))
-    elif isinstance(data, (list, tuple)):
-        for i, v in enumerate(data):
-            child_key = f"{prefix}[{i}]"
-            pairs.extend(_flatten_tensors(v, child_key))
-    return pairs
+def save_kv_cache(kv_cache, num_layers: int, output_dir: Path, prefix: str):
+    """Save KV-cache as per-layer .npy files."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(num_layers):
+        key = kv_cache[i][0].detach().cpu().float().numpy()
+        value = kv_cache[i][1].detach().cpu().float().numpy()
+        np.save(str(output_dir / f"{prefix}_key_{i}.npy"), key)
+        np.save(str(output_dir / f"{prefix}_value_{i}.npy"), value)
 
 
-def _safe_filename(key: str) -> str:
-    """Convert a nested key path to a safe filename."""
-    return key.replace(".", "_").replace("[", "_").replace("]", "").replace("/", "_")
-
-
-def convert_voice(pt_path: Path, output_dir: Path) -> dict | None:
-    """Load a .pt voice preset, save tensors as .npy, return manifest entry."""
+def export_voice(model, processor, pt_path: Path, output_dir: Path, device: str) -> dict | None:
+    """Export a single voice preset to KV-cache .npy files."""
     voice_name = pt_path.stem  # e.g. "en-Carter_man"
     voice_dir = output_dir / voice_name
     voice_dir.mkdir(parents=True, exist_ok=True)
+    neg_dir = voice_dir / "negative"
+    neg_dir.mkdir(parents=True, exist_ok=True)
 
     log.info("Processing voice: %s", voice_name)
 
@@ -124,60 +135,143 @@ def convert_voice(pt_path: Path, output_dir: Path) -> dict | None:
         log.error("  Failed to load %s: %s", pt_path, exc)
         return None
 
-    # Dump structure for inspection
-    structure = inspect_preset(data)
-    structure_path = voice_dir / "structure.json"
-    structure_path.write_text(json.dumps(structure, indent=2))
-    log.info("  Structure written to %s", structure_path)
+    # Extract prompt tokens from the voice preset
+    prompt_speech_tokens = data.get("prompt_speech_tokens")
+    prompt_text_tokens = data.get("prompt_text_tokens")
 
-    # Flatten and save tensors
-    tensors = _flatten_tensors(data)
-    if not tensors:
-        log.warning("  No tensors found in %s", pt_path.name)
+    if prompt_speech_tokens is None or prompt_text_tokens is None:
+        log.error("  Voice preset %s missing prompt tokens", voice_name)
         return None
 
-    tensor_files: list[dict] = []
-    for key, tensor in tensors:
-        fname = _safe_filename(key) + ".npy"
-        npy_path = voice_dir / fname
-        arr = tensor.float().cpu().numpy()
-        np.save(str(npy_path), arr)
-        tensor_files.append({
-            "key": key,
-            "file": fname,
-            "dtype": str(arr.dtype),
-            "shape": list(arr.shape),
-        })
+    if isinstance(prompt_speech_tokens, torch.Tensor):
+        prompt_speech_tokens = prompt_speech_tokens.to(device)
+    if isinstance(prompt_text_tokens, torch.Tensor):
+        prompt_text_tokens = prompt_text_tokens.to(device)
 
-    log.info("  Saved %d tensor(s) → %s", len(tensor_files), voice_dir)
+    log.info("  prompt_speech_tokens shape: %s", prompt_speech_tokens.shape if hasattr(prompt_speech_tokens, 'shape') else 'N/A')
+    log.info("  prompt_text_tokens shape: %s", prompt_text_tokens.shape if hasattr(prompt_text_tokens, 'shape') else 'N/A')
 
-    return {
+    with torch.no_grad():
+        # ── LM KV-cache: run text tokens through language_model ──
+        if prompt_text_tokens.dim() == 1:
+            prompt_text_tokens = prompt_text_tokens.unsqueeze(0)
+        lm_attn = torch.ones_like(prompt_text_tokens)
+        lm_out = model.model.language_model(
+            input_ids=prompt_text_tokens,
+            attention_mask=lm_attn,
+            use_cache=True,
+        )
+        lm_kv = lm_out.past_key_values
+        lm_prompt_len = prompt_text_tokens.shape[1]
+        log.info("  LM KV-cache: %d layers, prompt_len=%d", NUM_LM_LAYERS, lm_prompt_len)
+        save_kv_cache(lm_kv, NUM_LM_LAYERS, voice_dir, "lm_kv")
+
+        # ── TTS-LM positive KV-cache: run speech tokens through tts_language_model ──
+        # Get speech embeddings via acoustic_connector
+        speech_latents = data.get("prompt_speech_latents")
+        if speech_latents is not None:
+            speech_latents = speech_latents.to(device).float()
+            if speech_latents.dim() == 2:
+                # [num_frames, latent_dim] → process each frame
+                num_frames = speech_latents.shape[0]
+                speech_embeds_list = []
+                for f in range(num_frames):
+                    emb = model.model.acoustic_connector(speech_latents[f:f+1])
+                    speech_embeds_list.append(emb)
+                speech_embeds = torch.cat(speech_embeds_list, dim=0).unsqueeze(0)  # [1, num_frames, 896]
+            elif speech_latents.dim() == 3:
+                # [1, num_frames, latent_dim]
+                num_frames = speech_latents.shape[1]
+                speech_embeds_list = []
+                for f in range(num_frames):
+                    emb = model.model.acoustic_connector(speech_latents[:, f, :])
+                    speech_embeds_list.append(emb)
+                speech_embeds = torch.stack(speech_embeds_list, dim=1)  # [1, num_frames, 896]
+            else:
+                log.error("  Unexpected speech_latents shape: %s", speech_latents.shape)
+                return None
+        else:
+            # Fallback: use prompt_speech_tokens directly with embedding
+            log.warning("  No prompt_speech_latents found, using speech tokens with embedding lookup")
+            if prompt_speech_tokens.dim() == 1:
+                prompt_speech_tokens = prompt_speech_tokens.unsqueeze(0)
+            # Process through tts_language_model's embedding
+            speech_embeds = model.model.acoustic_connector(prompt_speech_tokens.float())
+            if speech_embeds.dim() == 2:
+                speech_embeds = speech_embeds.unsqueeze(0)
+
+        # Add type embedding for speech (index 0)
+        type_embed_speech = model.model.tts_input_types.weight[0:1]  # [1, 896]
+        speech_embeds = speech_embeds + type_embed_speech.unsqueeze(0)
+
+        tts_attn = torch.ones(1, speech_embeds.shape[1], dtype=torch.long, device=device)
+        tts_out = model.model.tts_language_model(
+            inputs_embeds=speech_embeds,
+            attention_mask=tts_attn,
+            use_cache=True,
+        )
+        tts_kv = tts_out.past_key_values
+        tts_prompt_len = speech_embeds.shape[1]
+        log.info("  TTS KV-cache (positive): %d layers, prompt_len=%d", NUM_TTS_LAYERS, tts_prompt_len)
+        save_kv_cache(tts_kv, NUM_TTS_LAYERS, voice_dir, "tts_kv")
+
+        # ── TTS-LM negative KV-cache: minimal (1-token) negative path ──
+        neg_embed = torch.zeros(1, 1, speech_embeds.shape[2], device=device)
+        neg_attn = torch.ones(1, 1, dtype=torch.long, device=device)
+        neg_out = model.model.tts_language_model(
+            inputs_embeds=neg_embed,
+            attention_mask=neg_attn,
+            use_cache=True,
+        )
+        neg_kv = neg_out.past_key_values
+        neg_prompt_len = 1
+        log.info("  TTS KV-cache (negative): %d layers, prompt_len=%d", NUM_TTS_LAYERS, neg_prompt_len)
+        save_kv_cache(neg_kv, NUM_TTS_LAYERS, neg_dir, "tts_kv")
+
+    # ── Write metadata ──
+    metadata = {
         "name": voice_name,
         "source_file": pt_path.name,
-        "directory": voice_name,
-        "tensors": tensor_files,
+        "lm_prompt_len": lm_prompt_len,
+        "tts_prompt_len": tts_prompt_len,
+        "neg_prompt_len": neg_prompt_len,
+        "num_tts_layers": NUM_TTS_LAYERS,
+        "num_lm_layers": NUM_LM_LAYERS,
     }
+    meta_path = voice_dir / "metadata.json"
+    meta_path.write_text(json.dumps(metadata, indent=2))
+    log.info("  Metadata → %s", meta_path)
+
+    return metadata
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Convert VibeVoice voice presets (.pt) to .npy for C#",
+        description="Export VibeVoice voice presets as KV-cache .npy files for C#",
     )
     parser.add_argument(
         "--output", type=str, default="../models/voices",
-        help="Output directory for voice .npy files (default: ../models/voices)",
+        help="Output directory for voice KV-cache files (default: ../models/voices)",
     )
     parser.add_argument(
         "--voices-dir", type=str, default=None,
-        help="Directory containing .pt voice files.  "
+        help="Directory containing .pt voice files. "
              "If omitted, voices are downloaded from GitHub.",
     )
+    parser.add_argument(
+        "--device", type=str, default="cpu", choices=["cpu", "cuda"],
+        help="Device to load model on (default: cpu)",
+    )
     args = parser.parse_args()
+
+    if args.device == "cuda" and not torch.cuda.is_available():
+        log.warning("CUDA not available — falling back to CPU")
+        args.device = "cpu"
 
     output_dir = Path(args.output).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Obtain voice presets ──────────────────────────────────────────
+    # ── Obtain voice presets ──
     if args.voices_dir:
         voices_dir = Path(args.voices_dir).resolve()
         if not voices_dir.is_dir():
@@ -196,33 +290,32 @@ def main():
         log.error("No voice presets available — aborting")
         sys.exit(1)
 
-    # ── Convert each voice ────────────────────────────────────────────
-    manifest_entries: list[dict] = []
-    for pt_path in pt_files:
-        entry = convert_voice(pt_path, output_dir)
-        if entry:
-            manifest_entries.append(entry)
+    # ── Load model (needed for KV-cache generation) ──
+    model, processor = load_model(args.device)
 
-    # ── Write manifest ────────────────────────────────────────────────
-    manifest = {
-        "version": 1,
-        "sample_rate": 24000,
-        "description": "VibeVoice voice presets exported as NumPy arrays",
-        "voices": manifest_entries,
-    }
-    manifest_path = output_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2))
+    # ── Export each voice ──
+    results = []
+    for pt_path in pt_files:
+        with torch.no_grad():
+            entry = export_voice(model, processor, pt_path, output_dir, args.device)
+            if entry:
+                results.append(entry)
+
     log.info("")
     log.info("═" * 50)
-    log.info("Voice Export Summary")
+    log.info("Voice Preset Export Summary")
     log.info("═" * 50)
-    log.info("  Voices exported : %d / %d", len(manifest_entries), len(pt_files))
-    log.info("  Manifest        : %s", manifest_path)
+    log.info("  Voices exported : %d / %d", len(results), len(pt_files))
+    for r in results:
+        log.info("    ✓ %s (tts_len=%d, lm_len=%d)",
+                 r["name"], r["tts_prompt_len"], r["lm_prompt_len"])
     log.info("═" * 50)
 
-    if len(manifest_entries) < len(pt_files):
+    if len(results) < len(pt_files):
         log.warning("Some voices failed — check logs above")
         sys.exit(1)
+    else:
+        log.info("All voice presets exported successfully!")
 
 
 if __name__ == "__main__":
