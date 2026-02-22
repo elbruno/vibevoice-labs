@@ -16,9 +16,9 @@ public sealed class VibeVoiceOptions
     public string HuggingFaceRepo { get; set; } = "elbruno/VibeVoice-Realtime-0.5B-ONNX";
 
     /// <summary>
-    /// Number of DDPM diffusion steps (default: 5).
+    /// Number of DDPM diffusion steps (default: 20, matching model config).
     /// </summary>
-    public int DiffusionSteps { get; set; } = 5;
+    public int DiffusionSteps { get; set; } = 20;
 
     /// <summary>
     /// Classifier-free guidance scale (default: 1.5).

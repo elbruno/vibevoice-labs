@@ -9,6 +9,11 @@ voices/
 
 # ONNX model files (too large for git — export with Python tools)
 src/scenario-08-onnx-native/models/*.onnx
+src/scenario-08-onnx-native/models/*.onnx.data
+src/scenario-08-onnx-native/models/tokenizer.json
+src/scenario-08-onnx-native/models/model_config.json
+src/scenario-08-onnx-native/models/model_structure.txt
+src/scenario-08-onnx-native/models/tokenizer/
 src/scenario-08-onnx-native/models/voices/
 !src/scenario-08-onnx-native/models/.gitkeep
 !src/scenario-08-onnx-native/models/README.md

@@ -6,36 +6,60 @@ namespace ElBruno.VibeVoice.Pipeline;
 internal sealed class DiffusionScheduler
 {
     private readonly int _numTrainTimesteps;
-    private readonly float[] _betas;
-    private readonly float[] _alphas;
     private readonly float[] _alphasCumprod;
     private readonly int[] _timesteps;
+    private readonly bool _useVPrediction;
 
-    public const float BetaStart = 0.00085f;
-    public const float BetaEnd = 0.012f;
     public const int DefaultTrainTimesteps = 1000;
 
-    public DiffusionScheduler(int numInferenceSteps = 5, int numTrainTimesteps = DefaultTrainTimesteps)
+    /// <param name="numInferenceSteps">Inference steps (default: 20, matching model config).</param>
+    /// <param name="numTrainTimesteps">Training timesteps (default: 1000).</param>
+    /// <param name="betaSchedule">Beta schedule: "cosine" or "linear".</param>
+    /// <param name="predictionType">Prediction type: "v_prediction" or "epsilon".</param>
+    public DiffusionScheduler(
+        int numInferenceSteps = 20,
+        int numTrainTimesteps = DefaultTrainTimesteps,
+        string betaSchedule = "cosine",
+        string predictionType = "v_prediction")
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(numInferenceSteps, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(numTrainTimesteps, 1);
 
         _numTrainTimesteps = numTrainTimesteps;
+        _useVPrediction = predictionType == "v_prediction";
 
-        _betas = new float[numTrainTimesteps];
-        for (int i = 0; i < numTrainTimesteps; i++)
-            _betas[i] = BetaStart + (BetaEnd - BetaStart) * i / (numTrainTimesteps - 1);
-
-        _alphas = new float[numTrainTimesteps];
-        for (int i = 0; i < numTrainTimesteps; i++)
-            _alphas[i] = 1.0f - _betas[i];
-
-        _alphasCumprod = new float[numTrainTimesteps];
-        _alphasCumprod[0] = _alphas[0];
-        for (int i = 1; i < numTrainTimesteps; i++)
-            _alphasCumprod[i] = _alphasCumprod[i - 1] * _alphas[i];
+        _alphasCumprod = betaSchedule == "cosine"
+            ? ComputeCosineAlphasCumprod(numTrainTimesteps)
+            : ComputeLinearAlphasCumprod(numTrainTimesteps);
 
         _timesteps = ComputeTimesteps(numInferenceSteps, numTrainTimesteps);
+    }
+
+    private static float[] ComputeCosineAlphasCumprod(int numTrainTimesteps, float s = 0.008f)
+    {
+        var alphasCumprod = new float[numTrainTimesteps];
+        for (int i = 0; i < numTrainTimesteps; i++)
+        {
+            float t = (float)i / numTrainTimesteps;
+            float cos = MathF.Cos((t + s) / (1 + s) * MathF.PI / 2);
+            float cos0 = MathF.Cos(s / (1 + s) * MathF.PI / 2);
+            alphasCumprod[i] = Math.Clamp(cos * cos / (cos0 * cos0), 0.0001f, 0.9999f);
+        }
+        return alphasCumprod;
+    }
+
+    private static float[] ComputeLinearAlphasCumprod(int numTrainTimesteps,
+        float betaStart = 0.00085f, float betaEnd = 0.012f)
+    {
+        var alphasCumprod = new float[numTrainTimesteps];
+        float cumprod = 1.0f;
+        for (int i = 0; i < numTrainTimesteps; i++)
+        {
+            float beta = betaStart + (betaEnd - betaStart) * i / (numTrainTimesteps - 1);
+            cumprod *= (1.0f - beta);
+            alphasCumprod[i] = cumprod;
+        }
+        return alphasCumprod;
     }
 
     public int[] GetTimesteps() => (int[])_timesteps.Clone();
@@ -54,11 +78,25 @@ internal sealed class DiffusionScheduler
         float sqrtAlphaCumprod = MathF.Sqrt(alphaCumprodT);
         float sqrtOneMinusAlphaCumprod = MathF.Sqrt(1.0f - alphaCumprodT);
 
+        // Predict x0 from model output using the correct prediction type
         float[] x0Pred = new float[sample.Length];
-        for (int i = 0; i < sample.Length; i++)
+        if (_useVPrediction)
         {
-            x0Pred[i] = (sample[i] - sqrtOneMinusAlphaCumprod * modelOutput[i]) / sqrtAlphaCumprod;
-            x0Pred[i] = Math.Clamp(x0Pred[i], -1.0f, 1.0f);
+            // v-prediction: x0 = sqrt(alpha_t) * sample - sqrt(1-alpha_t) * v
+            for (int i = 0; i < sample.Length; i++)
+            {
+                x0Pred[i] = sqrtAlphaCumprod * sample[i] - sqrtOneMinusAlphaCumprod * modelOutput[i];
+                x0Pred[i] = Math.Clamp(x0Pred[i], -1.0f, 1.0f);
+            }
+        }
+        else
+        {
+            // epsilon prediction: x0 = (sample - sqrt(1-alpha_t) * eps) / sqrt(alpha_t)
+            for (int i = 0; i < sample.Length; i++)
+            {
+                x0Pred[i] = (sample[i] - sqrtOneMinusAlphaCumprod * modelOutput[i]) / sqrtAlphaCumprod;
+                x0Pred[i] = Math.Clamp(x0Pred[i], -1.0f, 1.0f);
+            }
         }
 
         float sqrtAlphaCumprodPrev = MathF.Sqrt(alphaCumprodTPrev);

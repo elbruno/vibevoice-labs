@@ -15,15 +15,15 @@ internal sealed class OnnxInferencePipeline : IDisposable
     private readonly VoicePresetLoader _voicePresets;
     private bool _disposed;
 
-    public int DiffusionSteps { get; set; } = 5;
+    public int DiffusionSteps { get; set; } = 20;
     public float CfgScale { get; set; } = 1.5f;
     public int Seed { get; set; } = 42;
 
-    // TODO: Verify these dimensions after exporting models
-    private const int LatentDim = 1024;
+    // Matches model_config.json: latent_size=64, speech_vae_dim=64
+    private const int LatentDim = 64;
     private const int LatentLength = 50;
 
-    public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 5, float cfgScale = 1.5f, int seed = 42)
+    public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 20, float cfgScale = 1.5f, int seed = 42)
     {
         DiffusionSteps = diffusionSteps;
         CfgScale = cfgScale;
@@ -35,7 +35,7 @@ internal sealed class OnnxInferencePipeline : IDisposable
         };
 
         _textEncoder = new InferenceSession(Path.Combine(modelsDir, "text_encoder.onnx"), sessionOptions);
-        _diffusionStep = new InferenceSession(Path.Combine(modelsDir, "diffusion_step.onnx"), sessionOptions);
+        _diffusionStep = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), sessionOptions);
         _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), sessionOptions);
 
         _tokenizer = new BpeTokenizer(Path.Combine(modelsDir, "tokenizer.json"));

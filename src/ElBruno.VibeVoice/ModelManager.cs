@@ -25,23 +25,23 @@ internal sealed class ModelManager
     private static readonly string[] RequiredFiles =
     [
         "text_encoder.onnx",
-        "diffusion_step.onnx",
+        "text_encoder.onnx.data",
+        "prediction_head.onnx",
+        "prediction_head.onnx.data",
         "acoustic_decoder.onnx",
-        "tokenizer.json"
+        "acoustic_decoder.onnx.data",
+        "tokenizer.json",
+        "model_config.json"
     ];
 
     // Additional files to download (optional but recommended)
     private static readonly string[] OptionalFiles =
     [
-        "config.json",
-        "voices/manifest.json"
+        "config.json"
     ];
 
-    // Default voice presets
-    private static readonly string[] VoiceNames =
-    [
-        "Carter", "Davis", "Emma", "Frank", "Grace", "Mike"
-    ];
+    // Default voice presets (not currently hosted on HuggingFace)
+    private static readonly string[] VoiceNames = [];
 
     /// <summary>
     /// Checks whether all required model files exist in the specified directory.
