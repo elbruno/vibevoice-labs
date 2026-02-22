@@ -314,13 +314,47 @@ internal sealed class ModelManager
             return;
         }
 
+        // Resolve total size via HEAD requests
+        progress?.Report(new DownloadProgress
+        {
+            Stage = DownloadStage.Checking,
+            Message = $"Checking voice '{voiceInternalName}' ({missingFiles.Count} files)..."
+        });
+
+        long totalBytes = 0;
+        var fileSizes = new Dictionary<string, long>();
+
+        foreach (var file in missingFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var url = GetHuggingFaceUrl(huggingFaceRepo, file);
+            try
+            {
+                using var headRequest = new HttpRequestMessage(HttpMethod.Head, url);
+                using var headResponse = await SharedClient.SendAsync(headRequest, cancellationToken);
+                if (headResponse.IsSuccessStatusCode && headResponse.Content.Headers.ContentLength is > 0)
+                {
+                    var size = headResponse.Content.Headers.ContentLength.Value;
+                    fileSizes[file] = size;
+                    totalBytes += size;
+                }
+            }
+            catch
+            {
+                // HEAD failed — continue without size info for this file
+            }
+        }
+
         progress?.Report(new DownloadProgress
         {
             Stage = DownloadStage.Downloading,
-            Message = $"Downloading voice '{voiceInternalName}' ({missingFiles.Count} files)..."
+            TotalBytes = totalBytes,
+            Message = $"Downloading voice '{voiceInternalName}' ({missingFiles.Count} files, {FormatBytes(totalBytes)})..."
         });
 
         int fileIndex = 0;
+        long downloadedBytes = 0;
+
         foreach (var file in missingFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -336,7 +370,9 @@ internal sealed class ModelManager
             progress?.Report(new DownloadProgress
             {
                 Stage = DownloadStage.Downloading,
-                PercentComplete = (double)fileIndex / missingFiles.Count * 100,
+                PercentComplete = totalBytes > 0 ? (double)downloadedBytes / totalBytes * 100 : 0,
+                BytesDownloaded = downloadedBytes,
+                TotalBytes = totalBytes,
                 CurrentFile = file,
                 Message = $"[{fileIndex}/{missingFiles.Count}] Downloading {file}..."
             });
@@ -346,16 +382,40 @@ internal sealed class ModelManager
                 throw new InvalidOperationException(
                     $"Failed to download voice file '{file}' from https://huggingface.co/{huggingFaceRepo}: {(int)response.StatusCode} {response.StatusCode}");
 
+            var fileSize = response.Content.Headers.ContentLength ?? fileSizes.GetValueOrDefault(file);
+            long fileDownloaded = 0;
+
             await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
             await using var fileStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
-            await contentStream.CopyToAsync(fileStream, cancellationToken);
+
+            var buffer = new byte[81920];
+            int bytesRead;
+
+            while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
+            {
+                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                fileDownloaded += bytesRead;
+                downloadedBytes += bytesRead;
+
+                progress?.Report(new DownloadProgress
+                {
+                    Stage = DownloadStage.Downloading,
+                    PercentComplete = totalBytes > 0 ? (double)downloadedBytes / totalBytes * 100 : 0,
+                    BytesDownloaded = downloadedBytes,
+                    TotalBytes = totalBytes,
+                    CurrentFile = file,
+                    Message = $"[{fileIndex}/{missingFiles.Count}] {file} — {FormatBytes(fileDownloaded)}/{FormatBytes(fileSize)}"
+                });
+            }
         }
 
         progress?.Report(new DownloadProgress
         {
             Stage = DownloadStage.Complete,
             PercentComplete = 100,
-            Message = $"Voice '{voiceInternalName}' downloaded successfully."
+            BytesDownloaded = downloadedBytes,
+            TotalBytes = totalBytes,
+            Message = $"Voice '{voiceInternalName}' downloaded successfully ({FormatBytes(downloadedBytes)})."
         });
     }
 

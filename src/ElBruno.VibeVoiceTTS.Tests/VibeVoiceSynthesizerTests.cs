@@ -176,4 +176,74 @@ public class VibeVoiceSynthesizerTests
         await Assert.ThrowsAsync<ArgumentException>(
             () => tts.GenerateAudioAsync("", "Carter"));
     }
+
+    [Fact]
+    public void GetVoiceFiles_ReturnsExpectedFileCount()
+    {
+        var files = ModelManager.GetVoiceFiles("en-Carter_man");
+        // metadata.json + 40 TTS KV + 8 LM KV + 40 negative TTS KV + negative/tts_lm_hidden + tts_lm_hidden + lm_hidden = 92
+        Assert.Equal(92, files.Count);
+    }
+
+    [Fact]
+    public void GetVoiceFiles_ContainsMetadata()
+    {
+        var files = ModelManager.GetVoiceFiles("en-Davis_man");
+        Assert.Contains("voices/en-Davis_man/metadata.json", files);
+    }
+
+    [Fact]
+    public void GetVoiceFiles_ContainsKvCacheFiles()
+    {
+        var files = ModelManager.GetVoiceFiles("en-Emma_woman");
+        Assert.Contains("voices/en-Emma_woman/tts_kv_key_0.npy", files);
+        Assert.Contains("voices/en-Emma_woman/tts_kv_value_19.npy", files);
+        Assert.Contains("voices/en-Emma_woman/lm_kv_key_0.npy", files);
+        Assert.Contains("voices/en-Emma_woman/lm_kv_value_3.npy", files);
+    }
+
+    [Fact]
+    public void GetVoiceFiles_ContainsNegativePathFiles()
+    {
+        var files = ModelManager.GetVoiceFiles("en-Frank_man");
+        Assert.Contains("voices/en-Frank_man/negative/tts_lm_hidden.npy", files);
+        Assert.Contains("voices/en-Frank_man/negative/tts_kv_key_0.npy", files);
+        Assert.Contains("voices/en-Frank_man/negative/tts_kv_value_19.npy", files);
+    }
+
+    [Fact]
+    public void GetVoiceFiles_ContainsHiddenStateFiles()
+    {
+        var files = ModelManager.GetVoiceFiles("en-Grace_woman");
+        Assert.Contains("voices/en-Grace_woman/tts_lm_hidden.npy", files);
+        Assert.Contains("voices/en-Grace_woman/lm_hidden.npy", files);
+    }
+
+    [Fact]
+    public void IsVoiceAvailable_ReturnsFalse_ForNonExistentPath()
+    {
+        Assert.False(ModelManager.IsVoiceAvailable(@"C:\nonexistent\path", "en-Carter_man"));
+    }
+
+    [Fact]
+    public async Task EnsureVoiceAvailableAsync_AlreadyAvailable_ReportsComplete()
+    {
+        // Use the default model path — if Carter is downloaded, should report Complete
+        var modelPath = VibeVoiceOptions.GetDefaultModelPath();
+        if (!ModelManager.IsVoiceAvailable(modelPath, "en-Carter_man"))
+            return; // Skip if models not available
+
+        var reports = new List<DownloadProgress>();
+        var progress = new Progress<DownloadProgress>(p => reports.Add(p));
+
+        await ModelManager.EnsureVoiceAvailableAsync(
+            modelPath, "elbruno/VibeVoice-Realtime-0.5B-ONNX", "en-Carter_man", progress);
+
+        // Allow time for Progress<T> callbacks
+        await Task.Delay(100);
+
+        Assert.NotEmpty(reports);
+        Assert.Equal(DownloadStage.Complete, reports.Last().Stage);
+        Assert.Equal(100, reports.Last().PercentComplete);
+    }
 }
