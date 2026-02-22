@@ -33,27 +33,35 @@ Console.WriteLine("🔍 Checking/downloading model files...");
 await tts.EnsureModelAvailableAsync(progress);
 Console.WriteLine();
 
-// Generate speech
-var text = "Hello! Welcome to VibeVoice Labs. This is a demonstration of the VibeVoice text to speech system running natively in C sharp.";
-var voice = VibeVoicePreset.Carter;
-var outputPath = "output.wav";
+// Define sentences in multiple languages
+var samples = new[]
+{
+    ("Hello! Welcome to VibeVoice Labs. This is a demonstration of the VibeVoice text to speech system running natively in C sharp.",
+     VibeVoicePreset.Carter, "output_en.wav", "English"),
 
-Console.WriteLine($"🗣️  Voice:  {voice}");
-Console.WriteLine($"📝 Text:   \"{text}\"");
-Console.WriteLine();
+    ("¡Hola! Bienvenidos a VibeVoice Labs. Esta es una demostración del sistema de texto a voz VibeVoice ejecutándose de forma nativa en C sharp.",
+     VibeVoicePreset.Emma, "output_es.wav", "Spanish"),
+};
 
-Console.WriteLine("🎵 Generating audio...");
-var sw = System.Diagnostics.Stopwatch.StartNew();
-float[] audio = await tts.GenerateAudioAsync(text, voice);
-sw.Stop();
+foreach (var (text, voice, outputPath, language) in samples)
+{
+    Console.WriteLine($"🌐 Language: {language}");
+    Console.WriteLine($"🗣️  Voice:   {voice}");
+    Console.WriteLine($"📝 Text:    \"{text}\"");
+    Console.WriteLine();
 
-double duration = audio.Length / 24000.0;
-Console.WriteLine($"   ✅ Generated {duration:F2}s of audio ({audio.Length:N0} samples)");
-Console.WriteLine($"   ⏱️  Time: {sw.ElapsedMilliseconds}ms");
-Console.WriteLine();
+    Console.WriteLine("🎵 Generating audio...");
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    float[] audio = await tts.GenerateAudioAsync(text, voice);
+    sw.Stop();
 
-// Save to WAV
-tts.SaveWav(outputPath, audio);
-Console.WriteLine($"💾 Saved: {Path.GetFullPath(outputPath)}");
-Console.WriteLine();
-Console.WriteLine("🎉 Done! Open the WAV file to listen.");
+    double duration = audio.Length / 24000.0;
+    Console.WriteLine($"   ✅ Generated {duration:F2}s of audio ({audio.Length:N0} samples)");
+    Console.WriteLine($"   ⏱️  Time: {sw.ElapsedMilliseconds}ms");
+
+    tts.SaveWav(outputPath, audio);
+    Console.WriteLine($"💾 Saved: {Path.GetFullPath(outputPath)}");
+    Console.WriteLine();
+}
+
+Console.WriteLine("🎉 Done! Open the WAV files to listen.");
