@@ -242,6 +242,8 @@ vibevoice-labs/
 │   └── USER_MANUAL.md            # End-user documentation
 │
 └── src/
+    ├── ElBruno.VibeVoice/                  # Reusable C# TTS library (NuGet)
+    ├── ElBruno.VibeVoice.Tests/            # Unit + integration tests
     ├── scenario-01-simple/                 # Minimal Python TTS script
     │   ├── main.py
     │   ├── requirements.txt
@@ -259,9 +261,9 @@ vibevoice-labs/
     │   ├── VoiceLabs.ConsoleApp.csproj
     │   └── README.md
     │
-    ├── scenario-04-meai/                   # Real-time voice conversation
+    ├── scenario-04-meai/                   # Full C# TTS with Aspire
+    │   ├── VoiceLabs.Api/                  # C# WebAPI (ElBruno.VibeVoice)
     │   ├── VoiceLabs.ConversationHost/     # Aspire AppHost
-    │   ├── backend/                        # Python FastAPI (STT + TTS + AI)
     │   ├── VoiceLabs.ConversationWeb/      # Blazor frontend
     │   └── VoiceLabs.slnx
     │

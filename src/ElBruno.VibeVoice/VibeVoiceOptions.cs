@@ -21,9 +21,9 @@ public sealed class VibeVoiceOptions
     public int DiffusionSteps { get; set; } = 20;
 
     /// <summary>
-    /// Classifier-free guidance scale (default: 1.5).
+    /// Classifier-free guidance scale (default: 3.0, matching model config).
     /// </summary>
-    public float CfgScale { get; set; } = 1.5f;
+    public float CfgScale { get; set; } = 3.0f;
 
     /// <summary>
     /// Audio sample rate in Hz (default: 24000).
