@@ -2,15 +2,20 @@
 """
 Export VibeVoice-Realtime-0.5B PyTorch model to ONNX subcomponents.
 
-This is a ONE-TIME tool for converting the HuggingFace PyTorch model into
-three ONNX subgraphs that can be loaded independently by ONNX Runtime in C#:
-  - text_encoder.onnx   — LLM backbone (tokenized text → hidden states)
-  - diffusion_step.onnx — single DDPM denoising step
-  - acoustic_decoder.onnx — latent codes → 24 kHz waveform
+Actual model architecture (from model inspection):
+  model.model.language_model      — Qwen2Model (195.8M) text encoder
+  model.model.tts_language_model  — Qwen2Model (434.4M) TTS backbone
+  model.model.prediction_head     — VibeVoiceDiffusionHead (42.1M) diffusion
+  model.model.acoustic_tokenizer  — σ-VAE decoder (687.4M, encoder not pretrained)
+  model.model.acoustic_connector  — SpeechConnector (0.9M)
+
+Exported ONNX files:
+  - text_encoder.onnx     — language_model: text → hidden states
+  - prediction_head.onnx  — diffusion head: single denoising step
+  - acoustic_decoder.onnx — σ-VAE decoder: latents → waveform
 
 Usage:
     python export_model.py --output ../models
-    python export_model.py --output ../models --quantize int8 --device cuda
 """
 
 import argparse
@@ -25,6 +30,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+# Force legacy ONNX export (PyTorch 2.x defaults to torch.export which fails
+# on complex models with dynamic control flow)
+os.environ["TORCH_ONNX_USE_LEGACY"] = "1"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -38,41 +47,18 @@ SAMPLE_RATE = 24_000
 
 
 # ---------------------------------------------------------------------------
-# Wrapper modules – used when direct sub-module access is not straightforward
+# Wrapper modules for clean ONNX export interfaces
 # ---------------------------------------------------------------------------
 
 class TextEncoderWrapper(nn.Module):
-    """Wraps the LLM backbone to expose a clean (input_ids, attention_mask) → hidden_states interface."""
+    """Wraps model.model.language_model (Qwen2Model) for ONNX export."""
 
-    def __init__(self, model):
+    def __init__(self, language_model):
         super().__init__()
-        # The VibeVoice model is built on Qwen2.5.  Typical attribute path
-        # is model.model (the base transformer) or model.language_model.
-        # We try several known paths and fall back gracefully.
-        self._inner = None
-        for attr_path in ("model.model", "model", "language_model", "transformer"):
-            obj = model
-            try:
-                for part in attr_path.split("."):
-                    obj = getattr(obj, part)
-                self._inner = obj
-                log.info("TextEncoderWrapper: resolved backbone via '%s'", attr_path)
-                break
-            except AttributeError:
-                continue
-
-        if self._inner is None:
-            # TODO: If none of the known paths work with a future model
-            # revision, inspect `model.named_children()` and update.
-            raise RuntimeError(
-                "Could not locate the LLM backbone inside the model. "
-                "Available top-level children: "
-                + ", ".join(n for n, _ in model.named_children())
-            )
+        self.lm = language_model
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
-        outputs = self._inner(input_ids=input_ids, attention_mask=attention_mask)
-        # HuggingFace models return BaseModelOutput or similar
+        outputs = self.lm(input_ids=input_ids, attention_mask=attention_mask)
         if hasattr(outputs, "last_hidden_state"):
             return outputs.last_hidden_state
         if isinstance(outputs, (tuple, list)):
@@ -80,90 +66,36 @@ class TextEncoderWrapper(nn.Module):
         return outputs
 
 
-class DiffusionStepWrapper(nn.Module):
-    """Wraps a single denoising step of the DDPM diffusion head.
+class PredictionHeadWrapper(nn.Module):
+    """Wraps model.model.prediction_head (VibeVoiceDiffusionHead) for single step export."""
 
-    Inputs:
-        noisy_latent  – (B, latent_dim) or (B, C, T) noisy latent
-        timestep      – (B,) integer timestep
-        conditioning  – (B, seq_len, hidden_dim) encoder hidden states
-
-    Output:
-        predicted noise or denoised latent (same shape as noisy_latent)
-    """
-
-    def __init__(self, model):
+    def __init__(self, prediction_head):
         super().__init__()
-        self._diffusion = None
-        # Try common attribute names for the diffusion head
-        for attr_name in ("ddpm", "diffusion_head", "diffusion", "denoise_head",
-                          "noise_predictor", "ddpm_head"):
-            if hasattr(model, attr_name):
-                self._diffusion = getattr(model, attr_name)
-                log.info("DiffusionStepWrapper: resolved via '%s'", attr_name)
-                break
+        self.head = prediction_head
 
-        if self._diffusion is None:
-            # Fallback: search children for modules whose name contains 'diffus' or 'ddpm'
-            for name, child in model.named_modules():
-                lower = name.lower()
-                if "diffus" in lower or "ddpm" in lower or "denois" in lower:
-                    self._diffusion = child
-                    log.info("DiffusionStepWrapper: resolved via named_module '%s'", name)
-                    break
-
-        if self._diffusion is None:
-            # TODO: Manually inspect model architecture and update paths.
-            raise RuntimeError(
-                "Could not locate diffusion head. "
-                "Available top-level children: "
-                + ", ".join(n for n, _ in model.named_children())
-            )
-
-    def forward(
-        self,
-        noisy_latent: torch.Tensor,
-        timestep: torch.Tensor,
-        conditioning: torch.Tensor,
-    ) -> torch.Tensor:
-        return self._diffusion(noisy_latent, timestep, conditioning)
+    def forward(self, noisy_latent: torch.Tensor, timestep: torch.Tensor,
+                conditioning: torch.Tensor) -> torch.Tensor:
+        return self.head(noisy_latent, timestep, conditioning)
 
 
 class AcousticDecoderWrapper(nn.Module):
-    """Wraps the σ-VAE decoder that converts clean latents to a waveform.
+    """Wraps the decoder part of model.model.acoustic_tokenizer for ONNX export."""
 
-    Input:  latent – (B, latent_dim) or (B, C, T)
-    Output: waveform – (B, 1, num_samples) at 24 kHz
-    """
-
-    def __init__(self, model):
+    def __init__(self, acoustic_tokenizer):
         super().__init__()
-        self._decoder = None
-        for attr_name in ("acoustic_decoder", "vae_decoder", "decoder",
-                          "vocoder", "audio_decoder", "sigma_vae"):
-            if hasattr(model, attr_name):
-                self._decoder = getattr(model, attr_name)
-                log.info("AcousticDecoderWrapper: resolved via '%s'", attr_name)
-                break
-
-        if self._decoder is None:
-            for name, child in model.named_modules():
-                lower = name.lower()
-                if "decoder" in lower or "vocoder" in lower or "vae" in lower:
-                    self._decoder = child
-                    log.info("AcousticDecoderWrapper: resolved via named_module '%s'", name)
-                    break
-
-        if self._decoder is None:
-            # TODO: Manually inspect model architecture and update paths.
-            raise RuntimeError(
-                "Could not locate acoustic decoder. "
-                "Available top-level children: "
-                + ", ".join(n for n, _ in model.named_children())
-            )
+        # The acoustic_tokenizer has .encoder and .decoder
+        if hasattr(acoustic_tokenizer, 'decoder'):
+            self.dec = acoustic_tokenizer.decoder
+            log.info("AcousticDecoderWrapper: using acoustic_tokenizer.decoder")
+        elif hasattr(acoustic_tokenizer, 'quantizer') and hasattr(acoustic_tokenizer, 'decoder'):
+            self.dec = acoustic_tokenizer.decoder
+        else:
+            # Fallback: use the whole tokenizer (it may have a decode method)
+            self.dec = acoustic_tokenizer
+            log.warning("AcousticDecoderWrapper: using full acoustic_tokenizer as decoder")
 
     def forward(self, latent: torch.Tensor) -> torch.Tensor:
-        return self._decoder(latent)
+        return self.dec(latent)
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +111,7 @@ def _export_onnx(
     output_path: Path,
     component_name: str,
 ) -> bool:
-    """Export a single component to ONNX.  Returns True on success."""
+    """Export a single component to ONNX using legacy exporter. Returns True on success."""
     log.info("Exporting %s → %s", component_name, output_path)
     t0 = time.perf_counter()
     try:
@@ -203,12 +135,10 @@ def _export_onnx(
 
 
 def _quantize_model(onnx_path: Path, quant_type: str) -> Path:
-    """Apply post-training quantization and write a new file.  Returns path."""
+    """Apply post-training quantization."""
     from onnxruntime.quantization import quantize_dynamic, QuantType
-
     qtype = QuantType.QInt8 if quant_type == "int8" else QuantType.QUInt8
-    stem = onnx_path.stem
-    out_path = onnx_path.with_name(f"{stem}_{quant_type}.onnx")
+    out_path = onnx_path.with_name(f"{onnx_path.stem}_{quant_type}.onnx")
     log.info("Quantizing %s → %s (%s)", onnx_path.name, out_path.name, quant_type)
     quantize_dynamic(str(onnx_path), str(out_path), weight_type=qtype)
     size_mb = out_path.stat().st_size / (1024 * 1024)
@@ -232,18 +162,14 @@ def load_model(device: str):
     log.info("Loading processor from %s …", MODEL_NAME)
     processor = VibeVoiceStreamingProcessor.from_pretrained(MODEL_NAME)
 
-    dtype = torch.float32  # ONNX export requires fp32
-    attn_impl = "sdpa"     # flash_attention_2 unsupported in tracing
-
-    log.info("Loading model from %s (dtype=%s, attn=%s) …", MODEL_NAME, dtype, attn_impl)
+    log.info("Loading model from %s (fp32, sdpa) …", MODEL_NAME)
     model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
         MODEL_NAME,
-        torch_dtype=dtype,
-        attn_implementation=attn_impl,
+        torch_dtype=torch.float32,
+        attn_implementation="eager",  # eager is most compatible with ONNX tracing
         device_map=device,
     )
     model.eval()
-    model.set_ddpm_inference_steps(num_steps=5)
     log.info("Model loaded successfully on %s", device)
 
     return model, processor
@@ -255,10 +181,15 @@ def _dump_model_structure(model, output_dir: Path):
     lines = ["VibeVoice model structure\n", "=" * 60 + "\n\n"]
     lines.append("Top-level children:\n")
     for name, child in model.named_children():
-        lines.append(f"  {name}: {type(child).__name__}\n")
-    lines.append("\nAll named modules (first 200):\n")
+        params = sum(p.numel() for p in child.parameters()) / 1e6
+        lines.append(f"  {name}: {type(child).__name__} ({params:.1f}M params)\n")
+    lines.append("\nmodel.model children:\n")
+    for name, child in model.model.named_children():
+        params = sum(p.numel() for p in child.parameters()) / 1e6
+        lines.append(f"  {name}: {type(child).__name__} ({params:.1f}M params)\n")
+    lines.append("\nAll named modules (first 300):\n")
     for i, (name, mod) in enumerate(model.named_modules()):
-        if i >= 200:
+        if i >= 300:
             lines.append("  … (truncated)\n")
             break
         lines.append(f"  {name}: {type(mod).__name__}\n")
@@ -267,16 +198,11 @@ def _dump_model_structure(model, output_dir: Path):
 
 
 def export_text_encoder(model, processor, output_dir: Path, device: str) -> bool:
-    """Export the LLM backbone to ONNX."""
-    try:
-        wrapper = TextEncoderWrapper(model)
-        wrapper.eval()
-    except RuntimeError as exc:
-        log.error("Cannot create TextEncoderWrapper: %s", exc)
-        _dump_model_structure(model, output_dir)
-        return False
+    """Export model.model.language_model to ONNX."""
+    lm = model.model.language_model
+    wrapper = TextEncoderWrapper(lm)
+    wrapper.eval()
 
-    # Dummy inputs: batch=1, seq_len=64
     seq_len = 64
     input_ids = torch.randint(0, processor.tokenizer.vocab_size, (1, seq_len), device=device)
     attention_mask = torch.ones(1, seq_len, dtype=torch.long, device=device)
@@ -292,29 +218,24 @@ def export_text_encoder(model, processor, output_dir: Path, device: str) -> bool
             "hidden_states": {0: "batch", 1: "seq_len"},
         },
         output_path=output_dir / "text_encoder.onnx",
-        component_name="text_encoder",
+        component_name="text_encoder (language_model)",
     )
 
 
-def export_diffusion_step(model, output_dir: Path, device: str) -> bool:
-    """Export a single DDPM denoising step to ONNX."""
-    try:
-        wrapper = DiffusionStepWrapper(model)
-        wrapper.eval()
-    except RuntimeError as exc:
-        log.error("Cannot create DiffusionStepWrapper: %s", exc)
-        _dump_model_structure(model, output_dir)
-        return False
+def export_prediction_head(model, output_dir: Path, device: str) -> bool:
+    """Export model.model.prediction_head (diffusion head) to ONNX."""
+    head = model.model.prediction_head
+    wrapper = PredictionHeadWrapper(head)
+    wrapper.eval()
 
-    # Estimate dimensions from model config or use defaults
-    # TODO: Refine these dimensions after inspecting the actual model config
-    latent_dim = getattr(model.config, "latent_dim", 128)
-    hidden_dim = getattr(model.config, "hidden_size", 896)  # Qwen2.5-0.5B default
+    cfg = model.config.diffusion_head_config
+    latent_size = cfg.latent_size  # 64
+    hidden_size = cfg.hidden_size  # 896
     seq_len = 64
 
-    noisy_latent = torch.randn(1, latent_dim, device=device)
+    noisy_latent = torch.randn(1, latent_size, device=device)
     timestep = torch.tensor([500], dtype=torch.long, device=device)
-    conditioning = torch.randn(1, seq_len, hidden_dim, device=device)
+    conditioning = torch.randn(1, seq_len, hidden_size, device=device)
 
     return _export_onnx(
         module=wrapper,
@@ -327,24 +248,21 @@ def export_diffusion_step(model, output_dir: Path, device: str) -> bool:
             "conditioning": {0: "batch", 1: "seq_len"},
             "predicted_noise": {0: "batch"},
         },
-        output_path=output_dir / "diffusion_step.onnx",
-        component_name="diffusion_step",
+        output_path=output_dir / "prediction_head.onnx",
+        component_name="prediction_head (diffusion)",
     )
 
 
 def export_acoustic_decoder(model, output_dir: Path, device: str) -> bool:
-    """Export the σ-VAE decoder to ONNX."""
-    try:
-        wrapper = AcousticDecoderWrapper(model)
-        wrapper.eval()
-    except RuntimeError as exc:
-        log.error("Cannot create AcousticDecoderWrapper: %s", exc)
-        _dump_model_structure(model, output_dir)
-        return False
+    """Export the decoder from model.model.acoustic_tokenizer to ONNX."""
+    tokenizer = model.model.acoustic_tokenizer
+    wrapper = AcousticDecoderWrapper(tokenizer)
+    wrapper.eval()
 
-    # TODO: Refine latent shape after inspecting model internals
-    latent_dim = getattr(model.config, "latent_dim", 128)
-    latent = torch.randn(1, latent_dim, device=device)
+    cfg = model.config.diffusion_head_config
+    latent_size = cfg.speech_vae_dim  # 64
+
+    latent = torch.randn(1, latent_size, 50, device=device)  # (B, C, T)
 
     return _export_onnx(
         module=wrapper,
@@ -352,11 +270,11 @@ def export_acoustic_decoder(model, output_dir: Path, device: str) -> bool:
         input_names=["latent"],
         output_names=["waveform"],
         dynamic_axes={
-            "latent": {0: "batch"},
+            "latent": {0: "batch", 2: "time"},
             "waveform": {0: "batch"},
         },
         output_path=output_dir / "acoustic_decoder.onnx",
-        component_name="acoustic_decoder",
+        component_name="acoustic_decoder (σ-VAE)",
     )
 
 
@@ -364,11 +282,9 @@ def save_tokenizer(processor, output_dir: Path):
     """Save tokenizer config for C# reimplementation."""
     tok_dir = output_dir / "tokenizer"
     tok_dir.mkdir(parents=True, exist_ok=True)
-
     log.info("Saving tokenizer to %s", tok_dir)
     processor.tokenizer.save_pretrained(str(tok_dir))
 
-    # Also copy the most critical file to the top-level models dir
     tokenizer_json = tok_dir / "tokenizer.json"
     if tokenizer_json.exists():
         import shutil
@@ -378,56 +294,64 @@ def save_tokenizer(processor, output_dir: Path):
         log.warning("  tokenizer.json not found in saved pretrained output")
 
 
+def save_config_metadata(model, output_dir: Path):
+    """Save model config as JSON for C# to read dimensions."""
+    cfg = model.config
+    diff_cfg = cfg.diffusion_head_config
+    metadata = {
+        "model_name": MODEL_NAME,
+        "sample_rate": SAMPLE_RATE,
+        "hidden_size": diff_cfg.hidden_size,
+        "latent_size": diff_cfg.latent_size,
+        "speech_vae_dim": diff_cfg.speech_vae_dim,
+        "head_layers": diff_cfg.head_layers,
+        "ddpm_num_steps": diff_cfg.ddpm_num_steps,
+        "ddpm_num_inference_steps": diff_cfg.ddpm_num_inference_steps,
+        "prediction_type": diff_cfg.prediction_type,
+        "ddpm_beta_schedule": diff_cfg.ddpm_beta_schedule,
+        "tts_backbone_num_hidden_layers": cfg.tts_backbone_num_hidden_layers,
+        "onnx_opset": ONNX_OPSET,
+    }
+    meta_path = output_dir / "model_config.json"
+    with open(meta_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+    log.info("Model config saved to %s", meta_path)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Export VibeVoice-Realtime-0.5B to ONNX subcomponents",
     )
-    parser.add_argument(
-        "--output", type=str, default="../models",
-        help="Output directory for ONNX files (default: ../models)",
-    )
-    parser.add_argument(
-        "--quantize", type=str, choices=["int8", "uint8"], default=None,
-        help="Post-training dynamic quantization type (optional)",
-    )
-    parser.add_argument(
-        "--device", type=str, default="cpu", choices=["cpu", "cuda"],
-        help="Device to load the PyTorch model on (default: cpu)",
-    )
+    parser.add_argument("--output", type=str, default="../models",
+                        help="Output directory for ONNX files")
+    parser.add_argument("--quantize", type=str, choices=["int8", "uint8"], default=None,
+                        help="Post-training dynamic quantization type")
+    parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"],
+                        help="Device to load model on")
     args = parser.parse_args()
 
     if args.device == "cuda" and not torch.cuda.is_available():
-        log.warning("CUDA requested but not available — falling back to CPU")
+        log.warning("CUDA not available — falling back to CPU")
         args.device = "cpu"
 
     output_dir = Path(args.output).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     log.info("Output directory: %s", output_dir)
 
-    # ── Load model ────────────────────────────────────────────────────
     model, processor = load_model(args.device)
     _dump_model_structure(model, output_dir)
+    save_config_metadata(model, output_dir)
 
-    # ── Export components ─────────────────────────────────────────────
     results: dict[str, bool] = {}
-
     with torch.no_grad():
-        results["text_encoder"] = export_text_encoder(
-            model, processor, output_dir, args.device,
-        )
-        results["diffusion_step"] = export_diffusion_step(
-            model, output_dir, args.device,
-        )
-        results["acoustic_decoder"] = export_acoustic_decoder(
-            model, output_dir, args.device,
-        )
+        results["text_encoder"] = export_text_encoder(model, processor, output_dir, args.device)
+        results["prediction_head"] = export_prediction_head(model, output_dir, args.device)
+        results["acoustic_decoder"] = export_acoustic_decoder(model, output_dir, args.device)
 
-    # ── Tokenizer ─────────────────────────────────────────────────────
     save_tokenizer(processor, output_dir)
 
-    # ── Optional quantization ─────────────────────────────────────────
     if args.quantize:
-        for name in ("text_encoder", "diffusion_step", "acoustic_decoder"):
+        for name in results:
             onnx_path = output_dir / f"{name}.onnx"
             if onnx_path.exists():
                 try:
@@ -435,7 +359,6 @@ def main():
                 except Exception as exc:
                     log.error("Quantization failed for %s: %s", name, exc)
 
-    # ── Summary ───────────────────────────────────────────────────────
     log.info("")
     log.info("═" * 50)
     log.info("Export Summary")
@@ -446,13 +369,9 @@ def main():
     log.info("═" * 50)
 
     if all(results.values()):
-        log.info("All components exported successfully.")
-        log.info("Next step: python validate_export.py --models-dir %s", output_dir)
+        log.info("All components exported successfully!")
     else:
-        log.warning(
-            "Some exports failed. Check model_structure.txt in %s "
-            "and update wrapper attribute paths.", output_dir,
-        )
+        log.warning("Some exports failed. Check model_structure.txt for details.")
         sys.exit(1)
 
 
