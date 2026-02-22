@@ -9,10 +9,17 @@ namespace ElBruno.VibeVoice;
 /// </summary>
 internal sealed class ModelManager
 {
-    private static readonly HttpClient SharedClient = new()
+    private static readonly Lazy<HttpClient> LazyClient = new(() =>
     {
-        Timeout = TimeSpan.FromMinutes(30)
-    };
+        var client = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+        // Support HF_TOKEN env var for private/gated repos
+        var token = Environment.GetEnvironmentVariable("HF_TOKEN");
+        if (!string.IsNullOrEmpty(token))
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    });
+
+    private static HttpClient SharedClient => LazyClient.Value;
 
     // Files required for inference
     private static readonly string[] RequiredFiles =
@@ -142,7 +149,38 @@ internal sealed class ModelManager
             try
             {
                 using var response = await SharedClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                response.EnsureSuccessStatusCode();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (!RequiredFiles.Contains(file))
+                        continue; // Optional file — skip
+
+                    var statusCode = (int)response.StatusCode;
+                    var reason = response.StatusCode.ToString();
+
+                    if (statusCode == 401 || statusCode == 403)
+                    {
+                        throw new InvalidOperationException(
+                            $"Access denied ({statusCode} {reason}) downloading '{file}' from " +
+                            $"https://huggingface.co/{huggingFaceRepo}. " +
+                            "The repository may be private, gated, or not yet created. " +
+                            "Options:\n" +
+                            "  1. Set the HF_TOKEN environment variable with a valid HuggingFace token\n" +
+                            "  2. Export models locally: cd src/scenario-08-onnx-native/export && python export_model.py --output ../models\n" +
+                            "  3. Set VibeVoiceOptions.ModelPath to an existing local models directory");
+                    }
+
+                    if (statusCode == 404)
+                    {
+                        throw new InvalidOperationException(
+                            $"File '{file}' not found (404) at https://huggingface.co/{huggingFaceRepo}. " +
+                            "The model may not be uploaded yet. " +
+                            "Export models locally: cd src/scenario-08-onnx-native/export && python export_model.py --output ../models");
+                    }
+
+                    throw new HttpRequestException(
+                        $"Failed to download '{file}': {statusCode} {reason}");
+                }
 
                 var fileSize = response.Content.Headers.ContentLength ?? fileSizes.GetValueOrDefault(file);
                 long fileDownloaded = 0;
@@ -172,8 +210,20 @@ internal sealed class ModelManager
             }
             catch (HttpRequestException) when (!RequiredFiles.Contains(file))
             {
-                // Optional file not found — skip silently
+                // Optional file network error — skip
                 continue;
+            }
+            catch (InvalidOperationException)
+            {
+                // Re-throw our custom error messages
+                throw;
+            }
+            catch (HttpRequestException ex) when (RequiredFiles.Contains(file))
+            {
+                throw new InvalidOperationException(
+                    $"Failed to download required file '{file}' from https://huggingface.co/{huggingFaceRepo}: {ex.Message}. " +
+                    "Export models locally: cd src/scenario-08-onnx-native/export && python export_model.py --output ../models",
+                    ex);
             }
         }
 
