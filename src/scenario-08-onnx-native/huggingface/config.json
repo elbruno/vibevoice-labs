@@ -1,0 +1,88 @@
+{
+  "model_type": "vibevoice-realtime-onnx",
+  "base_model": "microsoft/VibeVoice-Realtime-0.5B",
+  "format": "onnx",
+  "onnx_opset": 17,
+  "precision": "float32",
+  "license": "mit",
+
+  "architecture": {
+    "description": "VibeVoice-Realtime-0.5B exported as 3 ONNX subcomponents",
+    "llm_backbone": "Qwen2.5-0.5B",
+    "diffusion_head": "DDPM (4 layers, ~40M params)",
+    "acoustic_decoder": "σ-VAE (~340M params)",
+    "total_parameters": "~500M"
+  },
+
+  "subcomponents": {
+    "text_encoder": {
+      "file": "text_encoder.onnx",
+      "description": "LLM backbone — tokenized text to hidden states",
+      "inputs": [
+        { "name": "input_ids", "dtype": "int64", "shape": [1, "seq_len"] },
+        { "name": "attention_mask", "dtype": "int64", "shape": [1, "seq_len"] }
+      ],
+      "outputs": [
+        { "name": "hidden_states", "dtype": "float32", "shape": [1, "seq_len", 896] }
+      ]
+    },
+    "diffusion_step": {
+      "file": "diffusion_step.onnx",
+      "description": "Single DDPM denoising step (called N times in a loop)",
+      "inputs": [
+        { "name": "latent_sample", "dtype": "float32", "shape": [1, 1024, 50] },
+        { "name": "encoder_hidden_states", "dtype": "float32", "shape": [1, "seq_len", 896] },
+        { "name": "voice_conditioning", "dtype": "float32", "shape": [1, 256] },
+        { "name": "timestep", "dtype": "int64", "shape": [1] }
+      ],
+      "outputs": [
+        { "name": "noise_pred", "dtype": "float32", "shape": [1, 1024, 50] }
+      ]
+    },
+    "acoustic_decoder": {
+      "file": "acoustic_decoder.onnx",
+      "description": "σ-VAE decoder — latent representation to 24kHz waveform",
+      "inputs": [
+        { "name": "latent_input", "dtype": "float32", "shape": [1, 1024, 50] }
+      ],
+      "outputs": [
+        { "name": "waveform", "dtype": "float32", "shape": [1, "audio_samples"] }
+      ]
+    }
+  },
+
+  "inference": {
+    "diffusion_steps": 5,
+    "cfg_scale": 1.5,
+    "noise_schedule": "linear",
+    "beta_start": 0.00085,
+    "beta_end": 0.012,
+    "num_train_timesteps": 1000
+  },
+
+  "audio": {
+    "sample_rate": 24000,
+    "channels": 1,
+    "bit_depth": 16,
+    "format": "wav"
+  },
+
+  "voices": {
+    "format": "npy",
+    "available": ["Carter", "Davis", "Emma", "Frank", "Grace", "Mike"],
+    "manifest": "voices/manifest.json"
+  },
+
+  "tokenizer": {
+    "file": "tokenizer.json",
+    "type": "bpe",
+    "base": "Qwen2.5"
+  },
+
+  "export_info": {
+    "exported_by": "vibevoice-labs",
+    "export_tool": "torch.onnx.export",
+    "source_repo": "https://github.com/elbruno/vibevoice-labs",
+    "export_scripts": "src/scenario-08-onnx-native/export/"
+  }
+}

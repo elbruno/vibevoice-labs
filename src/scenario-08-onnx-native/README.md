@@ -126,3 +126,39 @@ For NVIDIA GPUs:
 ```bash
 dotnet add package Microsoft.ML.OnnxRuntime.Gpu
 ```
+
+## Hugging Face
+
+The exported ONNX models are published on Hugging Face for easy download:
+
+**🤗 [elbruno/VibeVoice-Realtime-0.5B-ONNX](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX)**
+
+### Download from Hugging Face (Python)
+
+```python
+from huggingface_hub import snapshot_download
+
+local_dir = snapshot_download(
+    "elbruno/VibeVoice-Realtime-0.5B-ONNX",
+    allow_patterns=["*.onnx", "*.json", "*.npy", "voices/**"],
+)
+print(f"Models downloaded to: {local_dir}")
+```
+
+### Download from Hugging Face (Git)
+
+```bash
+git lfs install
+git clone https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX models
+```
+
+### Publish Updated Models
+
+After exporting new ONNX models, upload them to Hugging Face:
+
+```bash
+cd src/scenario-08-onnx-native/huggingface
+pip install huggingface_hub
+huggingface-cli login
+python upload_to_hf.py --repo elbruno/VibeVoice-Realtime-0.5B-ONNX --models-dir ../models
+```
