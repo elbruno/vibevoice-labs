@@ -42,6 +42,8 @@ model-index:
 
 This repository contains the VibeVoice-Realtime-0.5B model exported to ONNX format as three subcomponents. It enables running VibeVoice TTS inference using [ONNX Runtime](https://onnxruntime.ai/) in **C#, Python, C++, Java, JavaScript**, or any language with an ONNX Runtime binding — no PyTorch or Python required at runtime.
 
+📦 **Source code & examples:** [github.com/elbruno/vibevoice-labs](https://github.com/elbruno/vibevoice-labs) (see `src/scenario-08-onnx-native/`)
+
 ## Model Overview
 
 | Property | Value |
@@ -54,6 +56,7 @@ This repository contains the VibeVoice-Realtime-0.5B model exported to ONNX form
 | **First audible latency** | ~300 ms (hardware dependent) |
 | **Voices** | 6 English presets (Carter, Davis, Emma, Frank, Grace, Mike) |
 | **Languages** | English (primary), experimental multilingual |
+| **GitHub repo** | [elbruno/vibevoice-labs](https://github.com/elbruno/vibevoice-labs) |
 
 ## Architecture — Three ONNX Subcomponents
 

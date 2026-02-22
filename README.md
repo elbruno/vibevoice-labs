@@ -6,6 +6,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Aspire](https://img.shields.io/badge/Aspire-9.2-purple)](https://learn.microsoft.com/en-us/dotnet/aspire/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![HuggingFace](https://img.shields.io/badge/🤗_HuggingFace-ONNX_Models-orange)](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX)
 
 <!-- 
 ![VoiceLabs Demo](docs/images/demo.gif)
@@ -99,7 +100,7 @@ src/scenario-07-maui-mobile/
 ```
 
 ### Scenario 8: Native C# ONNX Inference
-Export VibeVoice model to ONNX subcomponents and run inference **entirely in C#** — zero Python dependency. Includes Python export tools and full C# inference pipeline. **Advanced level.**
+Export VibeVoice model to ONNX subcomponents and run inference **entirely in C#** — zero Python dependency. Includes Python export tools and full C# inference pipeline. ONNX models are published on 🤗 [Hugging Face](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX). **Advanced level.**
 
 ```
 src/scenario-08-onnx-native/
