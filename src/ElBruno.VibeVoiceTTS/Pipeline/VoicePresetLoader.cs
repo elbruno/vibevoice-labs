@@ -37,12 +37,25 @@ internal sealed class VoicePresetLoader
         foreach (var (tensorName, fileName) in entry.Files)
         {
             var filePath = Path.Combine(_voicesDir, fileName);
+            ValidatePathWithinDirectory(filePath, _voicesDir);
             if (File.Exists(filePath))
                 tensors[tensorName] = ReadNpyFile(filePath);
             else
                 throw new FileNotFoundException($"Voice preset file not found: {fileName}", filePath);
         }
         return tensors;
+    }
+
+    /// <summary>
+    /// Validates that a resolved path stays within the expected base directory (prevents path traversal).
+    /// </summary>
+    internal static void ValidatePathWithinDirectory(string fullPath, string baseDir)
+    {
+        var resolvedPath = Path.GetFullPath(fullPath);
+        var resolvedBase = Path.GetFullPath(baseDir);
+        if (!resolvedPath.StartsWith(resolvedBase, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException(
+                $"Path traversal detected: '{fullPath}' escapes base directory '{baseDir}'.");
     }
 
     private void LoadManifest()
@@ -160,7 +173,11 @@ internal sealed class VoicePresetLoader
         if (!isFloat32 && !isFloat64)
             throw new InvalidDataException($"Unsupported .npy dtype: {dtype}. Only float32/float64 supported.");
 
-        var dataBytes = reader.ReadBytes((int)(stream.Length - stream.Position));
+        var remaining = stream.Length - stream.Position;
+        if (remaining > int.MaxValue)
+            throw new InvalidDataException($".npy file too large ({remaining} bytes): {path}");
+
+        var dataBytes = reader.ReadBytes((int)remaining);
 
         if (isFloat32)
         {

@@ -46,7 +46,7 @@ public static class AudioWriter
         for (int i = 0; i < samples.Length; i++)
         {
             float clamped = Math.Clamp(samples[i], -1.0f, 1.0f);
-            short pcmSample = (short)(clamped * short.MaxValue);
+            short pcmSample = (short)Math.Round(clamped * short.MaxValue);
             writer.Write(pcmSample);
         }
     }

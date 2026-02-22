@@ -91,8 +91,9 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
     /// <inheritdoc/>
     public string[] GetAvailableVoices()
     {
-        if (_pipeline is not null)
-            return _pipeline.GetAvailableVoices();
+        var pipeline = _pipeline;
+        if (pipeline is not null)
+            return pipeline.GetAvailableVoices();
 
         // If pipeline not yet loaded, return the default preset names
         return Enum.GetNames<VibeVoicePreset>();

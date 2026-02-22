@@ -19,7 +19,6 @@ public class IntegrationTests
         using var tts = new VibeVoiceSynthesizer(new VibeVoiceOptions
         {
             DiffusionSteps = 5, // Fewer steps for faster test
-            CfgScale = 3.0f,
         });
 
         float[] audio = await tts.GenerateAudioAsync("Hello world", VibeVoicePreset.Carter);
@@ -39,8 +38,8 @@ public class IntegrationTests
 
         using var tts = new VibeVoiceSynthesizer(new VibeVoiceOptions { DiffusionSteps = 5 });
 
-        float[] audio1 = await tts.GenerateAudioAsync("Test", "Carter");
-        float[] audio2 = await tts.GenerateAudioAsync("Test", "Emma");
+        float[] audio1 = await tts.GenerateAudioAsync("Test", VibeVoicePreset.Carter);
+        float[] audio2 = await tts.GenerateAudioAsync("Test", VibeVoicePreset.Emma);
 
         Assert.True(audio1.Length > 0);
         Assert.True(audio2.Length > 0);
@@ -52,7 +51,7 @@ public class IntegrationTests
         Skip.IfNot(ModelsAvailable, "ONNX models not available locally");
 
         using var tts = new VibeVoiceSynthesizer(new VibeVoiceOptions { DiffusionSteps = 5 });
-        float[] audio = await tts.GenerateAudioAsync("Test", "Carter");
+        float[] audio = await tts.GenerateAudioAsync("Test", VibeVoicePreset.Carter);
 
         var tempFile = Path.GetTempFileName() + ".wav";
         try
