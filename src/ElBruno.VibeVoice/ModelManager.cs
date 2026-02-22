@@ -21,15 +21,24 @@ internal sealed class ModelManager
 
     private static HttpClient SharedClient => LazyClient.Value;
 
-    // Files required for inference
+    // Files required for inference (autoregressive pipeline with KV-cache)
     private static readonly string[] RequiredFiles =
     [
-        "text_to_condition.onnx",
-        "text_to_condition.onnx.data",
+        "lm_with_kv.onnx",
+        "lm_with_kv.onnx.data",
+        "tts_lm_prefill.onnx",
+        "tts_lm_prefill.onnx.data",
+        "tts_lm_step.onnx",
+        "tts_lm_step.onnx.data",
         "prediction_head.onnx",
         "prediction_head.onnx.data",
         "acoustic_decoder.onnx",
         "acoustic_decoder.onnx.data",
+        "acoustic_connector.onnx",
+        "acoustic_connector.onnx.data",
+        "eos_classifier.onnx",
+        "eos_classifier.onnx.data",
+        "type_embeddings.npy",
         "tokenizer.json",
         "model_config.json"
     ];
@@ -40,8 +49,8 @@ internal sealed class ModelManager
         "config.json"
     ];
 
-    // Default voice presets (not currently hosted on HuggingFace)
-    private static readonly string[] VoiceNames = [];
+    // Default voice presets with KV-cache data
+    private static readonly string[] VoiceNames = ["en-Carter_man", "en-Emma_woman"];
 
     /// <summary>
     /// Checks whether all required model files exist in the specified directory.
@@ -70,10 +79,33 @@ internal sealed class ModelManager
         filesToDownload.AddRange(RequiredFiles);
         filesToDownload.AddRange(OptionalFiles);
 
-        // Add voice preset files
+        // Add voice preset KV-cache files
         foreach (var voice in VoiceNames)
         {
-            filesToDownload.Add($"voices/{voice}/speaker_embedding.npy");
+            // Metadata
+            filesToDownload.Add($"voices/{voice}/metadata.json");
+            // TTS-LM KV-cache (20 layers)
+            for (int i = 0; i < 20; i++)
+            {
+                filesToDownload.Add($"voices/{voice}/tts_kv_key_{i}.npy");
+                filesToDownload.Add($"voices/{voice}/tts_kv_value_{i}.npy");
+            }
+            // LM KV-cache (4 layers)
+            for (int i = 0; i < 4; i++)
+            {
+                filesToDownload.Add($"voices/{voice}/lm_kv_key_{i}.npy");
+                filesToDownload.Add($"voices/{voice}/lm_kv_value_{i}.npy");
+            }
+            // Negative path
+            filesToDownload.Add($"voices/{voice}/negative/tts_lm_hidden.npy");
+            for (int i = 0; i < 20; i++)
+            {
+                filesToDownload.Add($"voices/{voice}/negative/tts_kv_key_{i}.npy");
+                filesToDownload.Add($"voices/{voice}/negative/tts_kv_value_{i}.npy");
+            }
+            // Hidden states
+            filesToDownload.Add($"voices/{voice}/tts_lm_hidden.npy");
+            filesToDownload.Add($"voices/{voice}/lm_hidden.npy");
         }
 
         // Filter out already-downloaded files

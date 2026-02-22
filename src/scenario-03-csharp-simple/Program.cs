@@ -36,11 +36,11 @@ Console.WriteLine();
 // Define sentences in multiple languages
 var samples = new[]
 {
-    ("Hello! Welcome to VibeVoice Labs. This is a demonstration of the VibeVoice text to speech system running natively in C sharp.",
-     VibeVoicePreset.Carter, "output_en.wav", "English"),
+    ("Hello! Welcome to VibeVoice Labs.",
+     VibeVoicePreset.Carter, "output_carter.wav", "English (Carter)"),
 
-    ("¡Hola! Bienvenidos a VibeVoice Labs. Esta es una demostración del sistema de texto a voz VibeVoice ejecutándose de forma nativa en C sharp.",
-     VibeVoicePreset.Emma, "output_es.wav", "Spanish"),
+    ("This is a text to speech demo.",
+     VibeVoicePreset.Emma, "output_emma.wav", "English (Emma)"),
 };
 
 foreach (var (text, voice, outputPath, language) in samples)

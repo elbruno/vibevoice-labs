@@ -4,48 +4,55 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 namespace ElBruno.VibeVoice.Pipeline;
 
 /// <summary>
-/// Orchestrates the full VibeVoice TTS pipeline using three ONNX models.
-/// Flow: text → text_to_condition (fused LM + TTS-LM) → last-token condition →
-///       N × (diffusion with CFG → scale latent) → batch acoustic decode → audio
+/// Orchestrates the full VibeVoice TTS autoregressive pipeline using ONNX models.
+/// Flow: text → LM (with KV-cache) → TTS-LM prefill (with voice preset KV-cache) →
+///       autoregressive loop: diffusion → acoustic_connector → TTS-LM step → EOS check →
+///       batch acoustic decode → audio
 /// </summary>
 internal sealed class OnnxInferencePipeline : IDisposable
 {
-    private readonly InferenceSession _textToCondition;
+    private readonly InferenceSession _lmWithKv;
+    private readonly InferenceSession _ttsLmPrefill;
+    private readonly InferenceSession _ttsLmStep;
     private readonly InferenceSession _predictionHead;
     private readonly InferenceSession _acousticDecoder;
+    private readonly InferenceSession _acousticConnector;
+    private readonly InferenceSession _eosClassifier;
+    private readonly float[] _typeEmbeddings; // [2, 896] flattened: speech=0..895, text=896..1791
     private readonly BpeTokenizer _tokenizer;
     private readonly VoicePresetLoader _voicePresets;
     private bool _disposed;
 
     public int DiffusionSteps { get; set; } = 20;
-    public float CfgScale { get; set; } = 3.0f;
+    public float CfgScale { get; set; } = 1.5f;
     public int Seed { get; set; } = 42;
 
-    // From model inspection
     private const int LatentDim = 64;
     private const int HiddenSize = 896;
+    private const int NumTtsLayers = 20;
+    private const int NumLmLayers = 4;
+    private const int NumKvHeads = 2;
+    private const int HeadDim = 64;
     private const float SpeechScalingFactor = 0.2333984375f;
     private const float SpeechBiasFactor = -0.0703125f;
-    private const int SamplesPerFrame = 3200;
+    private const int MaxFrames = 200;
 
-    // Heuristic: ~5 characters per speech frame at 24kHz
-    private const int CharsPerFrame = 5;
-
-    public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 20, float cfgScale = 3.0f, int seed = 42)
+    public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 20, float cfgScale = 1.5f, int seed = 42)
     {
         DiffusionSteps = diffusionSteps;
         CfgScale = cfgScale;
         Seed = seed;
 
-        var sessionOptions = new SessionOptions
-        {
-            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL
-        };
+        var opts = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
 
-        _textToCondition = new InferenceSession(Path.Combine(modelsDir, "text_to_condition.onnx"), sessionOptions);
-        _predictionHead = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), sessionOptions);
-        _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), sessionOptions);
-
+        _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), opts);
+        _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), opts);
+        _ttsLmStep = new InferenceSession(Path.Combine(modelsDir, "tts_lm_step.onnx"), opts);
+        _predictionHead = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), opts);
+        _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), opts);
+        _acousticConnector = new InferenceSession(Path.Combine(modelsDir, "acoustic_connector.onnx"), opts);
+        _eosClassifier = new InferenceSession(Path.Combine(modelsDir, "eos_classifier.onnx"), opts);
+        _typeEmbeddings = VoicePresetLoader.ReadNpyFile(Path.Combine(modelsDir, "type_embeddings.npy"));
         _tokenizer = new BpeTokenizer(Path.Combine(modelsDir, "tokenizer.json"));
         _voicePresets = new VoicePresetLoader(Path.Combine(modelsDir, "voices"));
     }
@@ -55,83 +62,201 @@ internal sealed class OnnxInferencePipeline : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
+        // Load voice preset KV-cache
+        var preset = _voicePresets.GetVoicePreset(voice);
+        int ttsPromptLen = GetKvSeqLen(preset, "tts_kv_key_0");
+        int lmPromptLen = GetKvSeqLen(preset, "lm_kv_key_0");
+
+        // Tokenize
         int[] tokenIds = _tokenizer.Encode(text);
+        int textLen = tokenIds.Length;
 
-        // 1. Fused text_to_condition: tokens → tts_lm hidden states [1, seqLen, 896]
-        float[] hiddenStates = RunTextToCondition(tokenIds);
+        // Step 1: Language model with KV-cache
+        float[] lmHidden = RunLmWithKv(tokenIds, preset, lmPromptLen);
 
-        // 2. Extract last-token hidden state as condition vector [896]
-        int seqLen = tokenIds.Length;
-        float[] condition = new float[HiddenSize];
-        int lastTokenOffset = (seqLen - 1) * HiddenSize;
-        Array.Copy(hiddenStates, lastTokenOffset, condition, 0, HiddenSize);
+        // Step 2: Add text type embedding and run TTS-LM prefill
+        float[] textTypeEmbed = GetTypeEmbedding(1); // text = type 1
+        float[] speechTypeEmbed = GetTypeEmbedding(0); // speech = type 0
+        float[] ttsInput = AddTypeEmbedding(lmHidden, textLen, textTypeEmbed);
 
-        // 3. Estimate number of speech frames from text length
-        int numFrames = Math.Max(text.Length / CharsPerFrame, 8);
-        var rng = new Random(Seed >= 0 ? Seed : Random.Shared.Next());
+        // Positive path: prefill with voice preset KV-cache
+        var (posHidden, posKeys, posValues) = RunTtsLmPrefill(
+            ttsInput, textLen, ttsPromptLen,
+            StackKvArrays(preset, "tts_kv_key_", NumTtsLayers),
+            StackKvArrays(preset, "tts_kv_value_", NumTtsLayers));
 
-        // 4. Generate all speech latents via diffusion and scale them
-        float[] allLatents = new float[LatentDim * numFrames];
-        for (int frame = 0; frame < numFrames; frame++)
+        // Negative path: prefill with negative voice preset KV-cache
+        int negPromptLen = GetKvSeqLen(preset, "neg_tts_kv_key_0");
+        var (negHidden, negKeys, negValues) = RunTtsLmPrefill(
+            ttsInput, textLen, negPromptLen,
+            StackKvArrays(preset, "neg_tts_kv_key_", NumTtsLayers),
+            StackKvArrays(preset, "neg_tts_kv_value_", NumTtsLayers));
+
+        // Step 3: Autoregressive speech generation
+        var allLatents = new List<float[]>();
+        int posTotalLen = ttsPromptLen + textLen;
+        int negTotalLen = negPromptLen + textLen;
+
+        for (int frame = 0; frame < MaxFrames; frame++)
         {
-            float[] latent = SampleSpeechLatent(condition, rng);
-            for (int d = 0; d < LatentDim; d++)
-                allLatents[d * numFrames + frame] = latent[d] / SpeechScalingFactor - SpeechBiasFactor;
+            // Extract condition from last hidden state
+            float[] posCond = ExtractLastHidden(posHidden, textLen > 0 && frame == 0 ? textLen : 1);
+            float[] negCond = ExtractLastHidden(negHidden, textLen > 0 && frame == 0 ? textLen : 1);
+
+            // EOS check (skip frame 0)
+            if (frame > 0)
+            {
+                float eosProb = RunEosClassifier(posCond);
+                if (eosProb > 0.5f) break;
+            }
+
+            // Diffusion with CFG
+            float[] latent = RunDiffusion(posCond, negCond, frame);
+            allLatents.Add(latent);
+
+            // Feedback: acoustic_connector → type embedding → TTS-LM step
+            float[] acEmbed = RunAcousticConnector(latent);
+            float[] speechEmbed = new float[HiddenSize];
+            for (int i = 0; i < HiddenSize; i++)
+                speechEmbed[i] = acEmbed[i] + speechTypeEmbed[i];
+
+            // Update positive path
+            posTotalLen++;
+            (posHidden, posKeys, posValues) = RunTtsLmStep(
+                speechEmbed, posTotalLen, posKeys, posValues);
+
+            // Update negative path
+            negTotalLen++;
+            (negHidden, negKeys, negValues) = RunTtsLmStep(
+                speechEmbed, negTotalLen, negKeys, negValues);
+
+            // After first frame, textLen is consumed
+            textLen = 0;
         }
 
-        // 5. Batch decode all frames: [1, 64, numFrames] → audio
-        float[] audio = RunAcousticDecoderBatch(allLatents, numFrames);
-        return audio;
+        // Decode all latents
+        return DecodeLatents(allLatents);
     }
 
     public string[] GetAvailableVoices() => _voicePresets.GetAvailableVoices();
 
-    private float[] RunTextToCondition(int[] tokenIds)
+    private float[] RunLmWithKv(int[] tokenIds, Dictionary<string, float[]> preset, int lmPromptLen)
     {
-        var inputIdsTensor = Utils.TensorHelpers.CreateTensor(
-            tokenIds.Select(id => (long)id).ToArray(),
-            [1, tokenIds.Length]);
+        int textLen = tokenIds.Length;
+        int totalLen = lmPromptLen + textLen;
 
-        var attentionMask = new long[tokenIds.Length];
-        Array.Fill(attentionMask, 1L);
-        var attentionMaskTensor = Utils.TensorHelpers.CreateTensor(attentionMask, [1, tokenIds.Length]);
+        var inputIds = new long[textLen];
+        for (int i = 0; i < textLen; i++) inputIds[i] = tokenIds[i];
+
+        var mask = new long[totalLen];
+        Array.Fill(mask, 1L);
+
+        var pastKeys = StackKvArrays(preset, "lm_kv_key_", NumLmLayers);
+        var pastValues = StackKvArrays(preset, "lm_kv_value_", NumLmLayers);
 
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("input_ids", inputIdsTensor),
-            NamedOnnxValue.CreateFromTensor("attention_mask", attentionMaskTensor)
+            NamedOnnxValue.CreateFromTensor("input_ids",
+                Utils.TensorHelpers.CreateTensor(inputIds, [1, textLen])),
+            NamedOnnxValue.CreateFromTensor("attention_mask",
+                Utils.TensorHelpers.CreateTensor(mask, [1, totalLen])),
+            NamedOnnxValue.CreateFromTensor("past_keys",
+                CreateKvTensor(pastKeys, NumLmLayers, lmPromptLen)),
+            NamedOnnxValue.CreateFromTensor("past_values",
+                CreateKvTensor(pastValues, NumLmLayers, lmPromptLen)),
         };
 
-        using var results = _textToCondition.Run(inputs);
-        var outputTensor = results.First().AsTensor<float>();
-        return outputTensor.ToArray();
+        using var results = _lmWithKv.Run(inputs);
+        var resultList = results.ToList();
+        return resultList[0].AsTensor<float>().ToArray(); // [1, textLen, 896]
     }
 
-    /// <summary>
-    /// Runs the DPM-Solver++ diffusion loop to produce a single speech latent [64].
-    /// Uses classifier-free guidance (CFG) with positive + negative (zeros) conditions.
-    /// </summary>
-    private float[] SampleSpeechLatent(float[] condition, Random rng)
+    private (float[] hidden, float[] keys, float[] values) RunTtsLmPrefill(
+        float[] inputEmbeds, int seqLen, int promptLen,
+        float[] pastKeys, float[] pastValues)
+    {
+        int totalLen = promptLen + seqLen;
+        var mask = new long[totalLen];
+        Array.Fill(mask, 1L);
+
+        var posIds = new long[seqLen];
+        for (int i = 0; i < seqLen; i++) posIds[i] = promptLen + i;
+
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("inputs_embeds",
+                Utils.TensorHelpers.CreateTensor(inputEmbeds, [1, seqLen, HiddenSize])),
+            NamedOnnxValue.CreateFromTensor("attention_mask",
+                Utils.TensorHelpers.CreateTensor(mask, [1, totalLen])),
+            NamedOnnxValue.CreateFromTensor("position_ids",
+                Utils.TensorHelpers.CreateTensor(posIds, [1, seqLen])),
+            NamedOnnxValue.CreateFromTensor("past_keys",
+                CreateKvTensor(pastKeys, NumTtsLayers, promptLen)),
+            NamedOnnxValue.CreateFromTensor("past_values",
+                CreateKvTensor(pastValues, NumTtsLayers, promptLen)),
+        };
+
+        using var results = _ttsLmPrefill.Run(inputs);
+        var resultList = results.ToList();
+        var hidden = resultList[0].AsTensor<float>().ToArray();
+        var newKeys = resultList[1].AsTensor<float>().ToArray();
+        var newValues = resultList[2].AsTensor<float>().ToArray();
+        return (hidden, newKeys, newValues);
+    }
+
+    private (float[] hidden, float[] keys, float[] values) RunTtsLmStep(
+        float[] embedVec, int totalLen, float[] pastKeys, float[] pastValues)
+    {
+        int pastSeqLen = totalLen - 1;
+        var mask = new long[totalLen];
+        Array.Fill(mask, 1L);
+
+        var inputEmbeds = new float[HiddenSize];
+        Array.Copy(embedVec, inputEmbeds, HiddenSize);
+
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("inputs_embeds",
+                Utils.TensorHelpers.CreateTensor(inputEmbeds, [1, 1, HiddenSize])),
+            NamedOnnxValue.CreateFromTensor("attention_mask",
+                Utils.TensorHelpers.CreateTensor(mask, [1, totalLen])),
+            NamedOnnxValue.CreateFromTensor("position_ids",
+                Utils.TensorHelpers.CreateTensor(new long[] { pastSeqLen }, [1, 1])),
+            NamedOnnxValue.CreateFromTensor("past_keys",
+                CreateKvTensorFromFlat(pastKeys, NumTtsLayers, pastSeqLen)),
+            NamedOnnxValue.CreateFromTensor("past_values",
+                CreateKvTensorFromFlat(pastValues, NumTtsLayers, pastSeqLen)),
+        };
+
+        using var results = _ttsLmStep.Run(inputs);
+        var resultList = results.ToList();
+        var hidden = resultList[0].AsTensor<float>().ToArray();
+        var newKeys = resultList[1].AsTensor<float>().ToArray();
+        var newValues = resultList[2].AsTensor<float>().ToArray();
+        return (hidden, newKeys, newValues);
+    }
+
+    private float[] RunDiffusion(float[] posCond, float[] negCond, int frame)
     {
         var scheduler = new DiffusionScheduler(DiffusionSteps);
         int[] timesteps = scheduler.GetTimesteps();
 
-        float[] speech = Utils.TensorHelpers.Randn([LatentDim], rng.Next());
+        // Initialize noise - batch of 2 (positive + negative)
+        float[] posNoise = Utils.TensorHelpers.Randn([LatentDim], Seed >= 0 ? Seed + frame : Random.Shared.Next());
+        float[] speech = (float[])posNoise.Clone();
 
         for (int i = 0; i < timesteps.Length; i++)
         {
-            float[] condPred = RunPredictionHead(speech, condition, timesteps[i]);
+            // Run prediction head for both positive and negative conditions
+            float[] condPred = RunPredictionHead(speech, posCond, timesteps[i]);
+            float[] uncondPred = RunPredictionHead(speech, negCond, timesteps[i]);
 
-            if (CfgScale > 1.0f)
-            {
-                float[] negCondition = new float[HiddenSize];
-                float[] uncondPred = RunPredictionHead(speech, negCondition, timesteps[i]);
+            // CFG: uncond + scale * (cond - uncond)
+            float[] guidedPred = new float[LatentDim];
+            for (int j = 0; j < LatentDim; j++)
+                guidedPred[j] = uncondPred[j] + CfgScale * (condPred[j] - uncondPred[j]);
 
-                for (int j = 0; j < condPred.Length; j++)
-                    condPred[j] = uncondPred[j] + CfgScale * (condPred[j] - uncondPred[j]);
-            }
-
-            speech = scheduler.Step(condPred, timesteps[i], speech);
+            speech = scheduler.Step(guidedPred, timesteps[i], speech);
         }
 
         return speech;
@@ -139,42 +264,68 @@ internal sealed class OnnxInferencePipeline : IDisposable
 
     private float[] RunPredictionHead(float[] latent, float[] condition, int timestep)
     {
-        var latentTensor = Utils.TensorHelpers.CreateTensor(latent, [1, LatentDim]);
-        var condTensor = Utils.TensorHelpers.CreateTensor(condition, [1, 1, HiddenSize]);
-        var timestepTensor = Utils.TensorHelpers.CreateTensor(new long[] { timestep }, [1]);
-
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("noisy_latent", latentTensor),
-            NamedOnnxValue.CreateFromTensor("timestep", timestepTensor),
-            NamedOnnxValue.CreateFromTensor("conditioning", condTensor)
+            NamedOnnxValue.CreateFromTensor("noisy_latent",
+                Utils.TensorHelpers.CreateTensor(latent, [1, LatentDim])),
+            NamedOnnxValue.CreateFromTensor("timestep",
+                Utils.TensorHelpers.CreateTensor(new long[] { timestep }, [1])),
+            NamedOnnxValue.CreateFromTensor("conditioning",
+                Utils.TensorHelpers.CreateTensor(condition, [1, HiddenSize])),
         };
 
         using var results = _predictionHead.Run(inputs);
-        var outputTensor = results.First().AsTensor<float>();
-        float[] output = outputTensor.ToArray();
-
-        if (output.Length > LatentDim)
-        {
-            float[] trimmed = new float[LatentDim];
-            Array.Copy(output, trimmed, LatentDim);
-            return trimmed;
-        }
-        return output;
+        return results.First().AsTensor<float>().ToArray();
     }
 
-    private float[] RunAcousticDecoderBatch(float[] scaledLatents, int numFrames)
+    private float[] RunAcousticConnector(float[] latent)
     {
-        var latentTensor = Utils.TensorHelpers.CreateTensor(scaledLatents, [1, LatentDim, numFrames]);
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("speech_latent",
+                Utils.TensorHelpers.CreateTensor(latent, [1, LatentDim])),
+        };
+
+        using var results = _acousticConnector.Run(inputs);
+        return results.First().AsTensor<float>().ToArray();
+    }
+
+    private float RunEosClassifier(float[] hiddenState)
+    {
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("hidden_state",
+                Utils.TensorHelpers.CreateTensor(hiddenState, [1, HiddenSize])),
+        };
+
+        using var results = _eosClassifier.Run(inputs);
+        float logit = results.First().AsTensor<float>().ToArray()[0];
+        return 1.0f / (1.0f + MathF.Exp(-logit)); // sigmoid
+    }
+
+    private float[] DecodeLatents(List<float[]> allLatents)
+    {
+        int numFrames = allLatents.Count;
+        // Scale latents: (latent - bias) / scaling
+        // Layout for decoder: [1, 64, numFrames] (transposed)
+        float[] scaled = new float[LatentDim * numFrames];
+        for (int f = 0; f < numFrames; f++)
+        {
+            for (int d = 0; d < LatentDim; d++)
+            {
+                float val = (allLatents[f][d] - SpeechBiasFactor) / SpeechScalingFactor;
+                scaled[d * numFrames + f] = val;
+            }
+        }
 
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("latent", latentTensor)
+            NamedOnnxValue.CreateFromTensor("latent",
+                Utils.TensorHelpers.CreateTensor(scaled, [1, LatentDim, numFrames])),
         };
 
         using var results = _acousticDecoder.Run(inputs);
-        var outputTensor = results.First().AsTensor<float>();
-        float[] audio = outputTensor.ToArray();
+        float[] audio = results.First().AsTensor<float>().ToArray();
 
         for (int i = 0; i < audio.Length; i++)
             audio[i] = Math.Clamp(audio[i], -1.0f, 1.0f);
@@ -182,12 +333,76 @@ internal sealed class OnnxInferencePipeline : IDisposable
         return audio;
     }
 
+    // Helper: Get type embedding (0=speech, 1=text)
+    private float[] GetTypeEmbedding(int typeIndex)
+    {
+        float[] embed = new float[HiddenSize];
+        Array.Copy(_typeEmbeddings, typeIndex * HiddenSize, embed, 0, HiddenSize);
+        return embed;
+    }
+
+    // Helper: Add type embedding to LM hidden states [1, seqLen, 896]
+    private static float[] AddTypeEmbedding(float[] hidden, int seqLen, float[] typeEmbed)
+    {
+        float[] result = new float[seqLen * HiddenSize];
+        for (int s = 0; s < seqLen; s++)
+        {
+            int offset = s * HiddenSize;
+            for (int i = 0; i < HiddenSize; i++)
+                result[offset + i] = hidden[offset + i] + typeEmbed[i];
+        }
+        return result;
+    }
+
+    // Helper: Extract last hidden state vector from output
+    private static float[] ExtractLastHidden(float[] hidden, int seqLen)
+    {
+        float[] result = new float[HiddenSize];
+        int offset = (seqLen - 1) * HiddenSize;
+        Array.Copy(hidden, offset, result, 0, HiddenSize);
+        return result;
+    }
+
+    // Helper: Get KV sequence length from preset array
+    private static int GetKvSeqLen(Dictionary<string, float[]> preset, string keyName)
+    {
+        // KV arrays are [1, num_kv_heads, seq_len, head_dim] = 1*2*seq*64
+        float[] data = preset[keyName];
+        return data.Length / (NumKvHeads * HeadDim);
+    }
+
+    // Helper: Stack KV arrays from preset into flat array [numLayers * 1 * numKvHeads * seqLen * headDim]
+    private static float[] StackKvArrays(Dictionary<string, float[]> preset, string prefix, int numLayers)
+    {
+        int layerSize = preset[prefix + "0"].Length;
+        float[] stacked = new float[numLayers * layerSize];
+        for (int i = 0; i < numLayers; i++)
+            Array.Copy(preset[prefix + i], 0, stacked, i * layerSize, layerSize);
+        return stacked;
+    }
+
+    // Helper: Create KV tensor [numLayers, 1, numKvHeads, seqLen, headDim] from flat preset data
+    private static DenseTensor<float> CreateKvTensor(float[] data, int numLayers, int seqLen)
+    {
+        return Utils.TensorHelpers.CreateTensor(data, [numLayers, 1, NumKvHeads, seqLen, HeadDim]);
+    }
+
+    // Helper: Create KV tensor from flat ONNX output (already in correct layout)
+    private static DenseTensor<float> CreateKvTensorFromFlat(float[] data, int numLayers, int seqLen)
+    {
+        return Utils.TensorHelpers.CreateTensor(data, [numLayers, 1, NumKvHeads, seqLen, HeadDim]);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        _textToCondition.Dispose();
+        _lmWithKv.Dispose();
+        _ttsLmPrefill.Dispose();
+        _ttsLmStep.Dispose();
         _predictionHead.Dispose();
         _acousticDecoder.Dispose();
+        _acousticConnector.Dispose();
+        _eosClassifier.Dispose();
     }
 }

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -5,6 +6,7 @@ namespace ElBruno.VibeVoice.Pipeline;
 
 /// <summary>
 /// Byte-Pair Encoding tokenizer that loads from HuggingFace tokenizer.json format.
+/// Supports Qwen2.5 tokenizer with ByteLevel pre-tokenizer.
 /// </summary>
 internal sealed partial class BpeTokenizer
 {
@@ -12,9 +14,9 @@ internal sealed partial class BpeTokenizer
     private readonly Dictionary<int, string> _reverseVocab;
     private readonly List<(string, string)> _merges;
     private readonly Dictionary<(string, string), int> _mergeRanks;
-    private readonly int _bosTokenId;
-    private readonly int _eosTokenId;
-    private readonly int _padTokenId;
+    private readonly Regex _preTokenizeRegex;
+    private readonly Dictionary<byte, char> _byteEncoder;
+    private readonly Dictionary<char, byte> _byteDecoder;
 
     public int VocabSize => _vocab.Count;
 
@@ -23,7 +25,7 @@ internal sealed partial class BpeTokenizer
         if (!File.Exists(tokenizerPath))
             throw new FileNotFoundException("Tokenizer file not found.", tokenizerPath);
 
-        var json = File.ReadAllText(tokenizerPath);
+        var json = File.ReadAllText(tokenizerPath, Encoding.UTF8);
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
@@ -35,57 +37,70 @@ internal sealed partial class BpeTokenizer
         for (int i = 0; i < _merges.Count; i++)
             _mergeRanks[_merges[i]] = i;
 
-        _bosTokenId = ResolveSpecialToken(root, "bos_token", "<|startoftext|>", "<s>", "<bos>");
-        _eosTokenId = ResolveSpecialToken(root, "eos_token", "<|endoftext|>", "</s>", "<eos>");
-        _padTokenId = ResolveSpecialToken(root, "pad_token", "<|padding|>", "<pad>");
+        // Build GPT-2 byte-to-unicode mapping for ByteLevel encoding
+        (_byteEncoder, _byteDecoder) = BuildByteEncoder();
+
+        // Parse pre-tokenizer regex from tokenizer.json
+        _preTokenizeRegex = ParsePreTokenizeRegex(root);
     }
 
     public int[] Encode(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
         if (string.IsNullOrWhiteSpace(text))
-            return [_bosTokenId, _eosTokenId];
+            return [];
 
-        var words = PreTokenize(text);
-        var tokenIds = new List<int> { _bosTokenId };
+        var tokenIds = new List<int>();
 
-        foreach (var word in words)
+        // Pre-tokenize using the regex from tokenizer.json
+        var matches = _preTokenizeRegex.Matches(text);
+        foreach (Match match in matches)
         {
+            // Apply ByteLevel encoding: convert each byte to its unicode char
+            string word = ByteLevelEncode(match.Value);
+
+            // Apply BPE merges
             var bpeTokens = ApplyBpe(word);
             foreach (var token in bpeTokens)
             {
                 if (_vocab.TryGetValue(token, out int id))
-                {
                     tokenIds.Add(id);
-                }
-                else
-                {
-                    foreach (char c in token)
-                    {
-                        var byteToken = $"<0x{(int)c:X2}>";
-                        if (_vocab.TryGetValue(byteToken, out int byteId))
-                            tokenIds.Add(byteId);
-                    }
-                }
             }
         }
 
-        tokenIds.Add(_eosTokenId);
         return tokenIds.ToArray();
     }
 
     public string Decode(int[] ids)
     {
         ArgumentNullException.ThrowIfNull(ids);
-        var tokens = new List<string>();
+        var sb = new StringBuilder();
         foreach (int id in ids)
         {
-            if (id == _bosTokenId || id == _eosTokenId || id == _padTokenId)
-                continue;
             if (_reverseVocab.TryGetValue(id, out var token))
-                tokens.Add(token.Replace('Ġ', ' '));
+                sb.Append(token);
         }
-        return string.Join("", tokens).Trim();
+        return ByteLevelDecode(sb.ToString());
+    }
+
+    private string ByteLevelEncode(string text)
+    {
+        byte[] utf8Bytes = Encoding.UTF8.GetBytes(text);
+        var sb = new StringBuilder(utf8Bytes.Length);
+        foreach (byte b in utf8Bytes)
+            sb.Append(_byteEncoder[b]);
+        return sb.ToString();
+    }
+
+    private string ByteLevelDecode(string encoded)
+    {
+        var bytes = new List<byte>(encoded.Length);
+        foreach (char c in encoded)
+        {
+            if (_byteDecoder.TryGetValue(c, out byte b))
+                bytes.Add(b);
+        }
+        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     private List<string> ApplyBpe(string word)
@@ -114,19 +129,65 @@ internal sealed partial class BpeTokenizer
         return symbols;
     }
 
-    private static List<string> PreTokenize(string text)
+    /// <summary>
+    /// Builds the GPT-2 byte-to-unicode character mapping used by ByteLevel tokenizers.
+    /// </summary>
+    private static (Dictionary<byte, char>, Dictionary<char, byte>) BuildByteEncoder()
     {
-        var words = new List<string>();
-        var matches = PreTokenizePattern().Matches(text);
-        foreach (Match match in matches)
-            words.Add(match.Value);
-        if (words.Count == 0 && !string.IsNullOrEmpty(text))
-            words.Add(text);
-        return words;
+        var byteToChar = new Dictionary<byte, char>();
+        var charToByte = new Dictionary<char, byte>();
+
+        int n = 0;
+        for (int b = 0; b < 256; b++)
+        {
+            if ((b >= '!' && b <= '~') ||
+                (b >= 0xA1 && b <= 0xAC) ||
+                (b >= 0xAE && b <= 0xFF))
+            {
+                byteToChar[(byte)b] = (char)b;
+                charToByte[(char)b] = (byte)b;
+            }
+            else
+            {
+                char c = (char)(256 + n);
+                byteToChar[(byte)b] = c;
+                charToByte[c] = (byte)b;
+                n++;
+            }
+        }
+        return (byteToChar, charToByte);
+    }
+
+    private static Regex ParsePreTokenizeRegex(JsonElement root)
+    {
+        if (root.TryGetProperty("pre_tokenizer", out var preTokenizer))
+        {
+            if (preTokenizer.TryGetProperty("type", out var type) &&
+                type.GetString() == "Sequence" &&
+                preTokenizer.TryGetProperty("pretokenizers", out var pretokenizers))
+            {
+                foreach (var pt in pretokenizers.EnumerateArray())
+                {
+                    if (pt.TryGetProperty("type", out var ptType) &&
+                        ptType.GetString() == "Split" &&
+                        pt.TryGetProperty("pattern", out var pattern) &&
+                        pattern.TryGetProperty("Regex", out var regex))
+                    {
+                        return new Regex(regex.GetString()!, RegexOptions.Compiled);
+                    }
+                }
+            }
+            else if (preTokenizer.TryGetProperty("pattern", out var directPattern) &&
+                     directPattern.TryGetProperty("Regex", out var directRegex))
+            {
+                return new Regex(directRegex.GetString()!, RegexOptions.Compiled);
+            }
+        }
+        return DefaultPreTokenizePattern();
     }
 
     [GeneratedRegex(@"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+", RegexOptions.Compiled)]
-    private static partial Regex PreTokenizePattern();
+    private static partial Regex DefaultPreTokenizePattern();
 
     private static Dictionary<string, int> ParseVocabulary(JsonElement root)
     {
@@ -161,7 +222,6 @@ internal sealed partial class BpeTokenizer
         {
             if (mergeEntry.ValueKind == JsonValueKind.String)
             {
-                // Format: "token1 token2"
                 var mergeStr = mergeEntry.GetString();
                 if (mergeStr is null) continue;
                 var parts = mergeStr.Split(' ', 2);
@@ -170,7 +230,6 @@ internal sealed partial class BpeTokenizer
             }
             else if (mergeEntry.ValueKind == JsonValueKind.Array && mergeEntry.GetArrayLength() == 2)
             {
-                // Format: ["token1", "token2"]
                 var a = mergeEntry[0].GetString();
                 var b = mergeEntry[1].GetString();
                 if (a is not null && b is not null)
@@ -178,28 +237,5 @@ internal sealed partial class BpeTokenizer
             }
         }
         return merges;
-    }
-
-    private int ResolveSpecialToken(JsonElement root, string tokenName, params string[] candidates)
-    {
-        if (root.TryGetProperty("added_tokens", out var addedTokens))
-        {
-            foreach (var token in addedTokens.EnumerateArray())
-            {
-                if (token.TryGetProperty("content", out var content) &&
-                    token.TryGetProperty("id", out var id))
-                {
-                    var contentStr = content.GetString();
-                    if (contentStr == tokenName || candidates.Contains(contentStr))
-                        return id.GetInt32();
-                }
-            }
-        }
-        foreach (var candidate in candidates)
-        {
-            if (_vocab.TryGetValue(candidate, out int id))
-                return id;
-        }
-        return 0;
     }
 }

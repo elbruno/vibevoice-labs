@@ -21,7 +21,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="ElBruno.VibeVoice.Tests" />
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>ElBruno.VibeVoice.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>

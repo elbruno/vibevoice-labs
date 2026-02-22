@@ -3,16 +3,22 @@
 Export VibeVoice-Realtime-0.5B PyTorch model to ONNX subcomponents.
 
 Actual model architecture (from model inspection):
-  model.model.language_model      — Qwen2Model (195.8M) text encoder
-  model.model.tts_language_model  — Qwen2Model (434.4M) TTS backbone
+  model.model.language_model      — Qwen2Model (195.8M) text encoder (4 layers)
+  model.model.tts_language_model  — Qwen2Model (434.4M) TTS backbone (20 layers)
   model.model.prediction_head     — VibeVoiceDiffusionHead (42.1M) diffusion
   model.model.acoustic_tokenizer  — σ-VAE decoder (687.4M, encoder not pretrained)
   model.model.acoustic_connector  — SpeechConnector (0.9M)
+  tts_eos_classifier              — BinaryClassifier (0.8M)
+  model.model.tts_input_types     — Embedding(2, 896) type embeddings
 
-Exported ONNX files:
-  - text_encoder.onnx     — language_model: text → hidden states
-  - prediction_head.onnx  — diffusion head: single denoising step
-  - acoustic_decoder.onnx — σ-VAE decoder: latents → waveform
+Exported ONNX files (autoregressive pipeline):
+  - language_model.onnx      — text encoder: tokens → hidden states
+  - tts_language_model.onnx  — TTS backbone: embeds → hidden states (no KV-cache)
+  - prediction_head.onnx     — diffusion head: (noisy, timestep, condition) → predicted
+  - acoustic_decoder.onnx    — σ-VAE decoder: latents → waveform
+  - acoustic_connector.onnx  — speech latent → embedding (64 → 896)
+  - eos_classifier.onnx      — hidden state → end-of-speech logit
+  - type_embeddings.npy       — [2, 896] type embeddings (0=speech, 1=text)
 
 Usage:
     python export_model.py --output ../models
@@ -66,12 +72,52 @@ class TextEncoderWrapper(nn.Module):
         return outputs
 
 
+class TtsLanguageModelWrapper(nn.Module):
+    """Wraps model.model.tts_language_model (Qwen2Model) for ONNX export.
+    
+    Takes pre-computed inputs_embeds (already includes type embeddings)
+    and returns hidden states. No KV-cache (recompute approach).
+    """
+
+    def __init__(self, tts_language_model):
+        super().__init__()
+        self.tts_lm = tts_language_model
+
+    def forward(self, inputs_embeds: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+        outputs = self.tts_lm(inputs_embeds=inputs_embeds, attention_mask=attention_mask, use_cache=False)
+        if hasattr(outputs, "last_hidden_state"):
+            return outputs.last_hidden_state
+        return outputs[0]
+
+
+class AcousticConnectorWrapper(nn.Module):
+    """Wraps model.model.acoustic_connector for ONNX export.
+    Projects speech latent (64) to embedding space (896)."""
+
+    def __init__(self, acoustic_connector):
+        super().__init__()
+        self.connector = acoustic_connector
+
+    def forward(self, speech_latent: torch.Tensor) -> torch.Tensor:
+        return self.connector(speech_latent)
+
+
+class EosClassifierWrapper(nn.Module):
+    """Wraps tts_eos_classifier for ONNX export.
+    Binary classifier: hidden_state (896) → logit (1)."""
+
+    def __init__(self, eos_classifier):
+        super().__init__()
+        self.classifier = eos_classifier
+
+    def forward(self, hidden_state: torch.Tensor) -> torch.Tensor:
+        return self.classifier(hidden_state)
+
+
 class TextToConditionWrapper(nn.Module):
     """Fuses language_model + tts_language_model for single-pass text-to-condition.
-    
-    The language_model encodes text into semantic features, then the
-    tts_language_model transforms those features into speech-appropriate
-    conditioning vectors for the diffusion head.
+    LEGACY: Proven broken for speech generation (static condition cannot produce correct text).
+    Kept for backward compatibility only.
     """
 
     def __init__(self, language_model, tts_language_model):
@@ -86,7 +132,8 @@ class TextToConditionWrapper(nn.Module):
 
 
 class PredictionHeadWrapper(nn.Module):
-    """Wraps model.model.prediction_head (VibeVoiceDiffusionHead) for single step export."""
+    """Wraps model.model.prediction_head (VibeVoiceDiffusionHead) for single step export.
+    condition is 2D [batch, 896], NOT 3D."""
 
     def __init__(self, prediction_head):
         super().__init__()
@@ -94,7 +141,6 @@ class PredictionHeadWrapper(nn.Module):
 
     def forward(self, noisy_latent: torch.Tensor, timestep: torch.Tensor,
                 conditioning: torch.Tensor) -> torch.Tensor:
-        # Cast timestep to float — internal linear layers expect float, not int64
         return self.head(noisy_latent, timestep.float(), conditioning)
 
 
@@ -218,7 +264,7 @@ def _dump_model_structure(model, output_dir: Path):
 
 
 def export_text_encoder(model, processor, output_dir: Path, device: str) -> bool:
-    """Export model.model.language_model to ONNX (legacy, kept for reference)."""
+    """Export model.model.language_model (Qwen2Model, 196M, 4 layers) to ONNX."""
     lm = model.model.language_model
     wrapper = TextEncoderWrapper(lm)
     wrapper.eval()
@@ -237,8 +283,8 @@ def export_text_encoder(model, processor, output_dir: Path, device: str) -> bool
             "attention_mask": {0: "batch", 1: "seq_len"},
             "hidden_states": {0: "batch", 1: "seq_len"},
         },
-        output_path=output_dir / "text_encoder.onnx",
-        component_name="text_encoder (language_model)",
+        output_path=output_dir / "language_model.onnx",
+        component_name="language_model (Qwen2, 196M)",
     )
 
 
@@ -272,7 +318,10 @@ def export_text_to_condition(model, processor, output_dir: Path, device: str) ->
 
 
 def export_prediction_head(model, output_dir: Path, device: str) -> bool:
-    """Export model.model.prediction_head (diffusion head) to ONNX."""
+    """Export model.model.prediction_head (diffusion head) to ONNX.
+    
+    condition is [batch, hidden_size] (2D), NOT [batch, seq_len, hidden_size].
+    """
     head = model.model.prediction_head
     wrapper = PredictionHeadWrapper(head)
     wrapper.eval()
@@ -280,11 +329,10 @@ def export_prediction_head(model, output_dir: Path, device: str) -> bool:
     cfg = model.config.diffusion_head_config
     latent_size = cfg.latent_size  # 64
     hidden_size = cfg.hidden_size  # 896
-    seq_len = 64
 
     noisy_latent = torch.randn(1, latent_size, device=device)
     timestep = torch.tensor([500], dtype=torch.long, device=device)
-    conditioning = torch.randn(1, seq_len, hidden_size, device=device)
+    conditioning = torch.randn(1, hidden_size, device=device)  # 2D: [batch, 896]
 
     return _export_onnx(
         module=wrapper,
@@ -294,7 +342,7 @@ def export_prediction_head(model, output_dir: Path, device: str) -> bool:
         dynamic_axes={
             "noisy_latent": {0: "batch"},
             "timestep": {0: "batch"},
-            "conditioning": {0: "batch", 1: "seq_len"},
+            "conditioning": {0: "batch"},
             "predicted_noise": {0: "batch"},
         },
         output_path=output_dir / "prediction_head.onnx",
@@ -325,6 +373,94 @@ def export_acoustic_decoder(model, output_dir: Path, device: str) -> bool:
         output_path=output_dir / "acoustic_decoder.onnx",
         component_name="acoustic_decoder (σ-VAE)",
     )
+
+
+def export_tts_language_model(model, output_dir: Path, device: str) -> bool:
+    """Export model.model.tts_language_model (Qwen2Model, 434M, 20 layers) to ONNX.
+    
+    No KV-cache: takes full inputs_embeds sequence, returns full hidden states.
+    The C# pipeline handles type embedding addition and sequence management.
+    """
+    tts_lm = model.model.tts_language_model
+    wrapper = TtsLanguageModelWrapper(tts_lm)
+    wrapper.eval()
+
+    seq_len = 16  # typical short sequence for tracing
+    hidden_size = 896
+    inputs_embeds = torch.randn(1, seq_len, hidden_size, device=device)
+    attention_mask = torch.ones(1, seq_len, dtype=torch.long, device=device)
+
+    return _export_onnx(
+        module=wrapper,
+        dummy_inputs=(inputs_embeds, attention_mask),
+        input_names=["inputs_embeds", "attention_mask"],
+        output_names=["hidden_states"],
+        dynamic_axes={
+            "inputs_embeds": {0: "batch", 1: "seq_len"},
+            "attention_mask": {0: "batch", 1: "seq_len"},
+            "hidden_states": {0: "batch", 1: "seq_len"},
+        },
+        output_path=output_dir / "tts_language_model.onnx",
+        component_name="tts_language_model (Qwen2, 434M)",
+    )
+
+
+def export_acoustic_connector(model, output_dir: Path, device: str) -> bool:
+    """Export model.model.acoustic_connector to ONNX.
+    Projects speech latent (64) → embedding (896).
+    """
+    connector = model.model.acoustic_connector
+    wrapper = AcousticConnectorWrapper(connector)
+    wrapper.eval()
+
+    speech_latent = torch.randn(1, 64, device=device)
+
+    return _export_onnx(
+        module=wrapper,
+        dummy_inputs=(speech_latent,),
+        input_names=["speech_latent"],
+        output_names=["embedding"],
+        dynamic_axes={
+            "speech_latent": {0: "batch"},
+            "embedding": {0: "batch"},
+        },
+        output_path=output_dir / "acoustic_connector.onnx",
+        component_name="acoustic_connector (64→896)",
+    )
+
+
+def export_eos_classifier(model, output_dir: Path, device: str) -> bool:
+    """Export tts_eos_classifier to ONNX.
+    Binary classifier: hidden_state (896) → logit (1).
+    """
+    classifier = model.tts_eos_classifier
+    wrapper = EosClassifierWrapper(classifier)
+    wrapper.eval()
+
+    hidden_state = torch.randn(1, 896, device=device)
+
+    return _export_onnx(
+        module=wrapper,
+        dummy_inputs=(hidden_state,),
+        input_names=["hidden_state"],
+        output_names=["logit"],
+        dynamic_axes={
+            "hidden_state": {0: "batch"},
+            "logit": {0: "batch"},
+        },
+        output_path=output_dir / "eos_classifier.onnx",
+        component_name="eos_classifier (binary)",
+    )
+
+
+def save_type_embeddings(model, output_dir: Path):
+    """Save tts_input_types embedding weights as numpy array.
+    Shape: [2, 896] — index 0 = speech type, index 1 = text type.
+    """
+    type_embed = model.model.tts_input_types.weight.detach().cpu().numpy()
+    npy_path = output_dir / "type_embeddings.npy"
+    np.save(str(npy_path), type_embed)
+    log.info("Type embeddings saved to %s (shape: %s)", npy_path, type_embed.shape)
 
 
 def save_tokenizer(processor, output_dir: Path):
@@ -393,10 +529,15 @@ def main():
 
     results: dict[str, bool] = {}
     with torch.no_grad():
-        results["text_to_condition"] = export_text_to_condition(model, processor, output_dir, args.device)
+        # Core autoregressive pipeline models
+        results["language_model"] = export_text_encoder(model, processor, output_dir, args.device)
+        results["tts_language_model"] = export_tts_language_model(model, output_dir, args.device)
         results["prediction_head"] = export_prediction_head(model, output_dir, args.device)
         results["acoustic_decoder"] = export_acoustic_decoder(model, output_dir, args.device)
+        results["acoustic_connector"] = export_acoustic_connector(model, output_dir, args.device)
+        results["eos_classifier"] = export_eos_classifier(model, output_dir, args.device)
 
+    save_type_embeddings(model, output_dir)
     save_tokenizer(processor, output_dir)
 
     if args.quantize:

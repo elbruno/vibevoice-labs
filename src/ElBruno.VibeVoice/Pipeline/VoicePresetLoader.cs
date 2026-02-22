@@ -80,16 +80,46 @@ internal sealed class VoicePresetLoader
         foreach (var dir in Directory.GetDirectories(_voicesDir))
         {
             var voiceName = Path.GetFileName(dir);
+            
+            // Look for metadata.json (KV-cache voice preset)
+            var metadataPath = Path.Combine(dir, "metadata.json");
+            if (File.Exists(metadataPath))
+            {
+                var entry = new VoiceManifestEntry { Name = voiceName };
+                
+                // Add all .npy files in the voice directory
+                foreach (var npyFile in Directory.GetFiles(dir, "*.npy"))
+                {
+                    var tensorName = Path.GetFileNameWithoutExtension(npyFile);
+                    entry.Files[tensorName] = Path.Combine(voiceName, Path.GetFileName(npyFile));
+                }
+                
+                // Add negative subdirectory files
+                var negDir = Path.Combine(dir, "negative");
+                if (Directory.Exists(negDir))
+                {
+                    foreach (var npyFile in Directory.GetFiles(negDir, "*.npy"))
+                    {
+                        var tensorName = "neg_" + Path.GetFileNameWithoutExtension(npyFile);
+                        entry.Files[tensorName] = Path.Combine(voiceName, "negative", Path.GetFileName(npyFile));
+                    }
+                }
+                
+                _manifest[voiceName] = entry;
+                continue;
+            }
+            
+            // Legacy: plain .npy files
             var npyFiles = Directory.GetFiles(dir, "*.npy");
             if (npyFiles.Length == 0) continue;
 
-            var entry = new VoiceManifestEntry { Name = voiceName };
+            var legacyEntry = new VoiceManifestEntry { Name = voiceName };
             foreach (var npyFile in npyFiles)
             {
                 var tensorName = Path.GetFileNameWithoutExtension(npyFile);
-                entry.Files[tensorName] = Path.Combine(voiceName, Path.GetFileName(npyFile));
+                legacyEntry.Files[tensorName] = Path.Combine(voiceName, Path.GetFileName(npyFile));
             }
-            _manifest[voiceName] = entry;
+            _manifest[voiceName] = legacyEntry;
         }
 
         foreach (var npyFile in Directory.GetFiles(_voicesDir, "*.npy"))
