@@ -96,11 +96,47 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
     {
         var pipeline = _pipeline;
         if (pipeline is not null)
-            return pipeline.GetAvailableVoices();
+        {
+            // Map internal names back to short names where possible
+            return pipeline.GetAvailableVoices()
+                .Select(internalName =>
+                {
+                    if (VibeVoicePresetExtensions.TryParseVoice(internalName, out var preset))
+                        return preset.ToString();
+                    return internalName;
+                })
+                .ToArray();
+        }
 
-        // If pipeline not yet loaded, return the internal preset names (consistent with what the pipeline returns)
+        return Enum.GetNames<VibeVoicePreset>();
+    }
+
+    /// <inheritdoc/>
+    public VoiceInfo[] GetAvailableVoiceDetails()
+    {
+        var pipeline = _pipeline;
+        if (pipeline is not null)
+        {
+            return pipeline.GetAvailableVoices()
+                .Select(internalName =>
+                {
+                    if (VibeVoicePresetExtensions.TryParseVoice(internalName, out var preset))
+                        return preset.ToVoiceInfo();
+
+                    // Unknown voice directory — parse what we can from the name
+                    var parts = internalName.Split('-', 2);
+                    var lang = parts.Length > 1 ? parts[0] : "unknown";
+                    var rest = parts.Length > 1 ? parts[1] : internalName;
+                    var nameParts = rest.Split('_', 2);
+                    var name = nameParts[0];
+                    var gender = nameParts.Length > 1 ? nameParts[1] : "unknown";
+                    return new VoiceInfo(name, internalName, lang, gender);
+                })
+                .ToArray();
+        }
+
         return Enum.GetValues<VibeVoicePreset>()
-            .Select(p => p.ToVoiceName())
+            .Select(p => p.ToVoiceInfo())
             .ToArray();
     }
 

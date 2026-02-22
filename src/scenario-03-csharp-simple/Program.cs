@@ -37,6 +37,12 @@ Console.WriteLine("🔍 Checking/downloading model files...");
 await tts.EnsureModelAvailableAsync(progress);
 Console.WriteLine();
 
+// Show available voices and their details
+Console.WriteLine("🗣️  Available voices:");
+foreach (var voice in tts.GetAvailableVoiceDetails())
+    Console.WriteLine($"   {voice.Name} ({voice.Gender}, {voice.Language})");
+Console.WriteLine();
+
 // Define sentences in multiple languages
 var samples = new[]
 {

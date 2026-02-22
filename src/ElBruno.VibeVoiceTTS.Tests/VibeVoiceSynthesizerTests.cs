@@ -33,13 +33,51 @@ public class VibeVoiceSynthesizerTests
     }
 
     [Fact]
-    public void GetAvailableVoices_ReturnsInternalVoiceNames()
+    public void GetAvailableVoices_ReturnsFriendlyNames()
     {
         using var tts = new VibeVoiceSynthesizer();
         string[] voices = tts.GetAvailableVoices();
         Assert.NotEmpty(voices);
-        Assert.Contains("en-Carter_man", voices);
-        Assert.Contains("en-Emma_woman", voices);
+        Assert.Contains("Carter", voices);
+        Assert.Contains("Emma", voices);
+        Assert.DoesNotContain("en-Carter_man", voices);
+    }
+
+    [Fact]
+    public void GetAvailableVoiceDetails_ReturnsAllPresets()
+    {
+        using var tts = new VibeVoiceSynthesizer();
+        VoiceInfo[] details = tts.GetAvailableVoiceDetails();
+        Assert.Equal(6, details.Length);
+    }
+
+    [Fact]
+    public void GetAvailableVoiceDetails_ContainsCorrectMetadata()
+    {
+        using var tts = new VibeVoiceSynthesizer();
+        VoiceInfo[] details = tts.GetAvailableVoiceDetails();
+
+        var carter = details.First(v => v.Name == "Carter");
+        Assert.Equal("en-Carter_man", carter.InternalName);
+        Assert.Equal("en", carter.Language);
+        Assert.Equal("man", carter.Gender);
+
+        var emma = details.First(v => v.Name == "Emma");
+        Assert.Equal("en-Emma_woman", emma.InternalName);
+        Assert.Equal("en", emma.Language);
+        Assert.Equal("woman", emma.Gender);
+    }
+
+    [Fact]
+    public void GetAvailableVoiceDetails_NamesMatchGetAvailableVoices()
+    {
+        using var tts = new VibeVoiceSynthesizer();
+        string[] voices = tts.GetAvailableVoices();
+        VoiceInfo[] details = tts.GetAvailableVoiceDetails();
+
+        Assert.Equal(voices.Length, details.Length);
+        for (int i = 0; i < voices.Length; i++)
+            Assert.Equal(voices[i], details[i].Name);
     }
 
     [Theory]
@@ -58,10 +96,28 @@ public class VibeVoiceSynthesizerTests
     [Theory]
     [InlineData("en-Carter_man")]
     [InlineData("en-Emma_woman")]
+    public void ResolveVoiceName_ResolvesInternalNamesToSame(string input)
+    {
+        // Internal names map back to the same internal name via preset lookup
+        Assert.Equal(input, VibeVoiceSynthesizer.ResolveVoiceName(input));
+    }
+
+    [Theory]
     [InlineData("custom-voice")]
-    public void ResolveVoiceName_PassesThroughInternalNames(string input)
+    [InlineData("fr-Marie_woman")]
+    public void ResolveVoiceName_PassesThroughUnknownNames(string input)
     {
         Assert.Equal(input, VibeVoiceSynthesizer.ResolveVoiceName(input));
+    }
+
+    [Theory]
+    [InlineData("en-Carter_man", "Carter")]
+    [InlineData("en-Emma_woman", "Emma")]
+    [InlineData("en-Mike_man", "Mike")]
+    public void TryParseVoice_ParsesInternalNames(string internalName, string expectedEnumName)
+    {
+        Assert.True(VibeVoicePresetExtensions.TryParseVoice(internalName, out var preset));
+        Assert.Equal(expectedEnumName, preset.ToString());
     }
 
     [Fact]

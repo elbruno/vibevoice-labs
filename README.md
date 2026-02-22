@@ -44,11 +44,32 @@ tts.SaveWav("output.wav", audio);
 ### 2) Use voice presets
 
 ```csharp
+// Use the enum (recommended)
 float[] carter = await tts.GenerateAudioAsync("Hello from Carter!", VibeVoicePreset.Carter);
 float[] emma = await tts.GenerateAudioAsync("Hello from Emma!", VibeVoicePreset.Emma);
+
+// Or use a string name — both short and internal names work
+float[] audio = await tts.GenerateAudioAsync("Hello!", "Carter");
+float[] audio2 = await tts.GenerateAudioAsync("Hello!", "en-Carter_man"); // also works
 ```
 
-### 3) Track download progress
+### 3) Discover available voices
+
+```csharp
+// Simple: get voice names
+string[] voices = tts.GetAvailableVoices();
+// → ["Carter", "Davis", "Emma", "Frank", "Grace", "Mike"]
+
+// Detailed: get full voice metadata
+VoiceInfo[] details = tts.GetAvailableVoiceDetails();
+foreach (var voice in details)
+    Console.WriteLine($"{voice.Name} ({voice.Gender}, {voice.Language}) — internal: {voice.InternalName}");
+// → Carter (man, en) — internal: en-Carter_man
+// → Emma (woman, en) — internal: en-Emma_woman
+// ...
+```
+
+### 4) Track download progress
 
 ```csharp
 var progress = new Progress<DownloadProgress>(p =>
@@ -62,7 +83,7 @@ var progress = new Progress<DownloadProgress>(p =>
 await tts.EnsureModelAvailableAsync(progress);
 ```
 
-### 4) Configure options
+### 5) Configure options
 
 ```csharp
 var options = new VibeVoiceOptions
@@ -89,7 +110,7 @@ using var tts = new VibeVoiceSynthesizer(options);
 
 *\*Default model cache: Windows: `%LOCALAPPDATA%\ElBruno\VibeVoice\models` · Linux/macOS: `~/.local/share/elbruno/vibevoice/models`*
 
-### 5) GPU Acceleration
+### 6) GPU Acceleration
 
 Enable GPU acceleration by setting the execution provider and installing the corresponding NuGet package:
 
@@ -121,7 +142,7 @@ using var tts = new VibeVoiceSynthesizer(options);
 
 > **💡 Note:** If the selected GPU provider is unavailable (missing NuGet package or no compatible GPU), the library automatically falls back to CPU inference. When using DirectML, models with dynamic tensor shapes (LM models, acoustic decoder) run on CPU while fixed-shape models (prediction head, connector, EOS classifier) use GPU — this works around known DirectML limitations with dynamic Reshape and ConvTranspose operations.
 
-### 6) Dependency Injection
+### 7) Dependency Injection
 
 ```csharp
 builder.Services.AddVibeVoice(options =>
@@ -136,14 +157,16 @@ builder.Services.AddVibeVoice(options =>
 
 ## 🗣️ Voices & Languages
 
-| Voice | Gender | Preset Enum |
-|-------|--------|-------------|
-| Carter | Male | `VibeVoicePreset.Carter` |
-| Davis | Male | `VibeVoicePreset.Davis` |
-| Emma | Female | `VibeVoicePreset.Emma` |
-| Frank | Male | `VibeVoicePreset.Frank` |
-| Grace | Female | `VibeVoicePreset.Grace` |
-| Mike | Male | `VibeVoicePreset.Mike` |
+| Voice | Gender | Preset Enum | Internal Name |
+|-------|--------|-------------|---------------|
+| Carter | Male | `VibeVoicePreset.Carter` | `en-Carter_man` |
+| Davis | Male | `VibeVoicePreset.Davis` | `en-Davis_man` |
+| Emma | Female | `VibeVoicePreset.Emma` | `en-Emma_woman` |
+| Frank | Male | `VibeVoicePreset.Frank` | `en-Frank_man` |
+| Grace | Female | `VibeVoicePreset.Grace` | `en-Grace_woman` |
+| Mike | Male | `VibeVoicePreset.Mike` | `en-Mike_man` |
+
+> **⚡ Migration note:** In versions prior to 0.2.0, `GetAvailableVoices()` returned internal names (e.g. `"en-Carter_man"`). Starting with 0.2.0, it returns friendly names (e.g. `"Carter"`). Both formats continue to work with `GenerateAudioAsync()`. Use `GetAvailableVoiceDetails()` if you need the internal names, language, or gender metadata.
 
 **Language support:** The model is primarily trained on **English**, with experimental multilingual capabilities (e.g., Spanish, French, German). Results may vary for non-English text.
 

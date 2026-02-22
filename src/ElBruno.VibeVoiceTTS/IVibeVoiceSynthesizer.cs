@@ -45,7 +45,14 @@ public interface IVibeVoiceSynthesizer : IDisposable
     void SaveWav(string path, float[] audioSamples);
 
     /// <summary>
-    /// Returns the names of available voice presets.
+    /// Returns the friendly names of available voice presets (e.g. "Carter", "Emma").
+    /// These names can be used directly with the string overload of GenerateAudioAsync.
     /// </summary>
     string[] GetAvailableVoices();
+
+    /// <summary>
+    /// Returns detailed information about all available voice presets,
+    /// including display name, internal name, language, and gender.
+    /// </summary>
+    VoiceInfo[] GetAvailableVoiceDetails();
 }
