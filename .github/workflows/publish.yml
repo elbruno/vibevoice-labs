@@ -1,0 +1,64 @@
+name: Publish to NuGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (leave empty to use csproj version)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(grep -oP '<Version>\K[^<]+' src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj)
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "📦 Publishing version: $VERSION"
+
+      - name: Restore
+        run: dotnet restore src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj
+
+      - name: Build
+        run: dotnet build src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj -c Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Pack
+        run: dotnet pack src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj -c Release --no-build -o ./nupkgs -p:Version=${{ steps.version.outputs.version }}
+
+      - name: NuGet login (Trusted Publishing)
+        uses: nuget/login@v1
+        with:
+          nuget-server: https://api.nuget.org/v3/index.json
+
+      - name: Push to NuGet.org
+        run: dotnet nuget push ./nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Upload nupkg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-${{ steps.version.outputs.version }}
+          path: ./nupkgs/*.nupkg
