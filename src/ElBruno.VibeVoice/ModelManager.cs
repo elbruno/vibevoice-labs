@@ -24,8 +24,8 @@ internal sealed class ModelManager
     // Files required for inference
     private static readonly string[] RequiredFiles =
     [
-        "text_encoder.onnx",
-        "text_encoder.onnx.data",
+        "text_to_condition.onnx",
+        "text_to_condition.onnx.data",
         "prediction_head.onnx",
         "prediction_head.onnx.data",
         "acoustic_decoder.onnx",

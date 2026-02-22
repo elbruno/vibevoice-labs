@@ -66,6 +66,25 @@ class TextEncoderWrapper(nn.Module):
         return outputs
 
 
+class TextToConditionWrapper(nn.Module):
+    """Fuses language_model + tts_language_model for single-pass text-to-condition.
+    
+    The language_model encodes text into semantic features, then the
+    tts_language_model transforms those features into speech-appropriate
+    conditioning vectors for the diffusion head.
+    """
+
+    def __init__(self, language_model, tts_language_model):
+        super().__init__()
+        self.lm = language_model
+        self.tts_lm = tts_language_model
+
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+        hidden = self.lm(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
+        tts_out = self.tts_lm(inputs_embeds=hidden).last_hidden_state
+        return tts_out
+
+
 class PredictionHeadWrapper(nn.Module):
     """Wraps model.model.prediction_head (VibeVoiceDiffusionHead) for single step export."""
 
@@ -199,7 +218,7 @@ def _dump_model_structure(model, output_dir: Path):
 
 
 def export_text_encoder(model, processor, output_dir: Path, device: str) -> bool:
-    """Export model.model.language_model to ONNX."""
+    """Export model.model.language_model to ONNX (legacy, kept for reference)."""
     lm = model.model.language_model
     wrapper = TextEncoderWrapper(lm)
     wrapper.eval()
@@ -220,6 +239,35 @@ def export_text_encoder(model, processor, output_dir: Path, device: str) -> bool
         },
         output_path=output_dir / "text_encoder.onnx",
         component_name="text_encoder (language_model)",
+    )
+
+
+def export_text_to_condition(model, processor, output_dir: Path, device: str) -> bool:
+    """Export fused language_model + tts_language_model to ONNX.
+    
+    This produces the correct speech-conditioned hidden states needed
+    by the prediction_head for diffusion. The C# pipeline should use
+    the last token's hidden state as the condition vector.
+    """
+    wrapper = TextToConditionWrapper(model.model.language_model, model.model.tts_language_model)
+    wrapper.eval()
+
+    seq_len = 64
+    input_ids = torch.randint(0, processor.tokenizer.vocab_size, (1, seq_len), device=device)
+    attention_mask = torch.ones(1, seq_len, dtype=torch.long, device=device)
+
+    return _export_onnx(
+        module=wrapper,
+        dummy_inputs=(input_ids, attention_mask),
+        input_names=["input_ids", "attention_mask"],
+        output_names=["hidden_states"],
+        dynamic_axes={
+            "input_ids": {0: "batch", 1: "seq_len"},
+            "attention_mask": {0: "batch", 1: "seq_len"},
+            "hidden_states": {0: "batch", 1: "seq_len"},
+        },
+        output_path=output_dir / "text_to_condition.onnx",
+        component_name="text_to_condition (language_model + tts_language_model)",
     )
 
 
@@ -345,7 +393,7 @@ def main():
 
     results: dict[str, bool] = {}
     with torch.no_grad():
-        results["text_encoder"] = export_text_encoder(model, processor, output_dir, args.device)
+        results["text_to_condition"] = export_text_to_condition(model, processor, output_dir, args.device)
         results["prediction_head"] = export_prediction_head(model, output_dir, args.device)
         results["acoustic_decoder"] = export_acoustic_decoder(model, output_dir, args.device)
 

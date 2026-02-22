@@ -5,11 +5,12 @@ namespace ElBruno.VibeVoice.Pipeline;
 
 /// <summary>
 /// Orchestrates the full VibeVoice TTS pipeline using three ONNX models.
-/// Flow: text → encoder → mean-pool condition → N × (diffusion → scale → decode) → concat audio
+/// Flow: text → text_to_condition (fused LM + TTS-LM) → last-token condition →
+///       N × (diffusion with CFG → scale latent) → batch acoustic decode → audio
 /// </summary>
 internal sealed class OnnxInferencePipeline : IDisposable
 {
-    private readonly InferenceSession _textEncoder;
+    private readonly InferenceSession _textToCondition;
     private readonly InferenceSession _predictionHead;
     private readonly InferenceSession _acousticDecoder;
     private readonly BpeTokenizer _tokenizer;
@@ -25,7 +26,10 @@ internal sealed class OnnxInferencePipeline : IDisposable
     private const int HiddenSize = 896;
     private const float SpeechScalingFactor = 0.2333984375f;
     private const float SpeechBiasFactor = -0.0703125f;
-    private const int SamplesPerFrame = 3200; // acoustic decoder produces 3200 samples per latent
+    private const int SamplesPerFrame = 3200;
+
+    // Heuristic: ~5 characters per speech frame at 24kHz
+    private const int CharsPerFrame = 5;
 
     public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 20, float cfgScale = 3.0f, int seed = 42)
     {
@@ -38,7 +42,7 @@ internal sealed class OnnxInferencePipeline : IDisposable
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL
         };
 
-        _textEncoder = new InferenceSession(Path.Combine(modelsDir, "text_encoder.onnx"), sessionOptions);
+        _textToCondition = new InferenceSession(Path.Combine(modelsDir, "text_to_condition.onnx"), sessionOptions);
         _predictionHead = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), sessionOptions);
         _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), sessionOptions);
 
@@ -52,21 +56,22 @@ internal sealed class OnnxInferencePipeline : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
         int[] tokenIds = _tokenizer.Encode(text);
+
+        // 1. Fused text_to_condition: tokens → tts_lm hidden states [1, seqLen, 896]
+        float[] hiddenStates = RunTextToCondition(tokenIds);
+
+        // 2. Extract last-token hidden state as condition vector [896]
         int seqLen = tokenIds.Length;
+        float[] condition = new float[HiddenSize];
+        int lastTokenOffset = (seqLen - 1) * HiddenSize;
+        Array.Copy(hiddenStates, lastTokenOffset, condition, 0, HiddenSize);
 
-        // 1. Text encoder: tokens → hidden states [1, seqLen, 896]
-        float[] hiddenStates = RunTextEncoder(tokenIds);
-
-        // 2. Mean-pool hidden states to get condition vector [896]
-        float[] condition = MeanPoolHiddenStates(hiddenStates, seqLen);
-
-        // 3. Generate speech latents via diffusion (one per frame)
-        //    Heuristic: ~1 frame per token, minimum 10 frames
-        int numFrames = Math.Max(seqLen, 10);
+        // 3. Estimate number of speech frames from text length
+        int numFrames = Math.Max(text.Length / CharsPerFrame, 8);
         var rng = new Random(Seed >= 0 ? Seed : Random.Shared.Next());
 
-        // Generate all latents and scale them
-        float[] allLatents = new float[LatentDim * numFrames]; // [64, numFrames] interleaved as [d0_f0, d0_f1, ... d0_fN, d1_f0, ...]
+        // 4. Generate all speech latents via diffusion and scale them
+        float[] allLatents = new float[LatentDim * numFrames];
         for (int frame = 0; frame < numFrames; frame++)
         {
             float[] latent = SampleSpeechLatent(condition, rng);
@@ -74,14 +79,14 @@ internal sealed class OnnxInferencePipeline : IDisposable
                 allLatents[d * numFrames + frame] = latent[d] / SpeechScalingFactor - SpeechBiasFactor;
         }
 
-        // 4. Batch decode all frames: [1, 64, numFrames] → [1, 1, numFrames * 3200]
+        // 5. Batch decode all frames: [1, 64, numFrames] → audio
         float[] audio = RunAcousticDecoderBatch(allLatents, numFrames);
         return audio;
     }
 
     public string[] GetAvailableVoices() => _voicePresets.GetAvailableVoices();
 
-    private float[] RunTextEncoder(int[] tokenIds)
+    private float[] RunTextToCondition(int[] tokenIds)
     {
         var inputIdsTensor = Utils.TensorHelpers.CreateTensor(
             tokenIds.Select(id => (long)id).ToArray(),
@@ -97,49 +102,31 @@ internal sealed class OnnxInferencePipeline : IDisposable
             NamedOnnxValue.CreateFromTensor("attention_mask", attentionMaskTensor)
         };
 
-        using var results = _textEncoder.Run(inputs);
+        using var results = _textToCondition.Run(inputs);
         var outputTensor = results.First().AsTensor<float>();
         return outputTensor.ToArray();
     }
 
-    private static float[] MeanPoolHiddenStates(float[] hiddenStates, int seqLen)
-    {
-        // hiddenStates is [1, seqLen, HiddenSize] flattened → mean across seqLen → [HiddenSize]
-        float[] pooled = new float[HiddenSize];
-        for (int h = 0; h < HiddenSize; h++)
-        {
-            float sum = 0;
-            for (int s = 0; s < seqLen; s++)
-                sum += hiddenStates[s * HiddenSize + h];
-            pooled[h] = sum / seqLen;
-        }
-        return pooled;
-    }
-
     /// <summary>
-    /// Runs the diffusion denoising loop to produce a single speech latent [64].
-    /// Mirrors Python sample_speech_tokens: uses CFG with positive + negative conditions.
+    /// Runs the DPM-Solver++ diffusion loop to produce a single speech latent [64].
+    /// Uses classifier-free guidance (CFG) with positive + negative (zeros) conditions.
     /// </summary>
     private float[] SampleSpeechLatent(float[] condition, Random rng)
     {
         var scheduler = new DiffusionScheduler(DiffusionSteps);
         int[] timesteps = scheduler.GetTimesteps();
 
-        // Initialize noise [64]
         float[] speech = Utils.TensorHelpers.Randn([LatentDim], rng.Next());
 
         for (int i = 0; i < timesteps.Length; i++)
         {
-            // Positive pass: prediction_head(speech, timestep, condition)
             float[] condPred = RunPredictionHead(speech, condition, timesteps[i]);
 
             if (CfgScale > 1.0f)
             {
-                // Negative pass: prediction_head(speech, timestep, zeros)
                 float[] negCondition = new float[HiddenSize];
                 float[] uncondPred = RunPredictionHead(speech, negCondition, timesteps[i]);
 
-                // CFG: uncond + scale * (cond - uncond)
                 for (int j = 0; j < condPred.Length; j++)
                     condPred[j] = uncondPred[j] + CfgScale * (condPred[j] - uncondPred[j]);
             }
@@ -152,11 +139,8 @@ internal sealed class OnnxInferencePipeline : IDisposable
 
     private float[] RunPredictionHead(float[] latent, float[] condition, int timestep)
     {
-        // noisy_latent: [1, 64]
         var latentTensor = Utils.TensorHelpers.CreateTensor(latent, [1, LatentDim]);
-        // conditioning: [1, 1, 896] — single condition vector wrapped as seq_len=1
         var condTensor = Utils.TensorHelpers.CreateTensor(condition, [1, 1, HiddenSize]);
-        // timestep: [1]
         var timestepTensor = Utils.TensorHelpers.CreateTensor(new long[] { timestep }, [1]);
 
         var inputs = new List<NamedOnnxValue>
@@ -170,7 +154,6 @@ internal sealed class OnnxInferencePipeline : IDisposable
         var outputTensor = results.First().AsTensor<float>();
         float[] output = outputTensor.ToArray();
 
-        // Output is [1, 1, 64] → extract just the [64] portion
         if (output.Length > LatentDim)
         {
             float[] trimmed = new float[LatentDim];
@@ -182,7 +165,6 @@ internal sealed class OnnxInferencePipeline : IDisposable
 
     private float[] RunAcousticDecoderBatch(float[] scaledLatents, int numFrames)
     {
-        // latent: [1, 64, numFrames]
         var latentTensor = Utils.TensorHelpers.CreateTensor(scaledLatents, [1, LatentDim, numFrames]);
 
         var inputs = new List<NamedOnnxValue>
@@ -204,7 +186,7 @@ internal sealed class OnnxInferencePipeline : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _textEncoder.Dispose();
+        _textToCondition.Dispose();
         _predictionHead.Dispose();
         _acousticDecoder.Dispose();
     }
