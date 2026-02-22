@@ -19,6 +19,7 @@ internal sealed class OnnxInferencePipeline : IDisposable
     private readonly InferenceSession _acousticConnector;
     private readonly InferenceSession _eosClassifier;
     private readonly SessionOptions _sessionOptions;
+    private readonly SessionOptions? _cpuSessionOptions; // For LM models when using DirectML (Reshape node incompatibility)
     private readonly float[] _typeEmbeddings; // [2, 896] flattened: speech=0..895, text=896..1791
     private readonly BpeTokenizer _tokenizer;
     private readonly VoicePresetLoader _voicePresets;
@@ -48,9 +49,22 @@ internal sealed class OnnxInferencePipeline : IDisposable
         _sessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
         ConfigureExecutionProvider(_sessionOptions, executionProvider, gpuDeviceId);
 
-        _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), _sessionOptions);
-        _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), _sessionOptions);
-        _ttsLmStep = new InferenceSession(Path.Combine(modelsDir, "tts_lm_step.onnx"), _sessionOptions);
+        // DirectML has a known incompatibility with dynamic Reshape nodes in the KV-cache LM models.
+        // Use CPU for LM models and GPU for compute-heavy models (prediction_head, acoustic_decoder).
+        SessionOptions lmOptions;
+        if (executionProvider == ExecutionProvider.DirectML)
+        {
+            _cpuSessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
+            lmOptions = _cpuSessionOptions;
+        }
+        else
+        {
+            lmOptions = _sessionOptions;
+        }
+
+        _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), lmOptions);
+        _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), lmOptions);
+        _ttsLmStep = new InferenceSession(Path.Combine(modelsDir, "tts_lm_step.onnx"), lmOptions);
         _predictionHead = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), _sessionOptions);
         _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), _sessionOptions);
         _acousticConnector = new InferenceSession(Path.Combine(modelsDir, "acoustic_connector.onnx"), _sessionOptions);
@@ -438,5 +452,6 @@ internal sealed class OnnxInferencePipeline : IDisposable
         _acousticConnector.Dispose();
         _eosClassifier.Dispose();
         _sessionOptions.Dispose();
+        _cpuSessionOptions?.Dispose();
     }
 }
