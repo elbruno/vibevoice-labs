@@ -76,10 +76,13 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
         ArgumentException.ThrowIfNullOrWhiteSpace(voiceName);
 
+        // Resolve short preset names (e.g. "Carter") to internal names (e.g. "en-Carter_man")
+        var resolvedName = ResolveVoiceName(voiceName);
+
         var pipeline = await GetOrCreatePipelineAsync();
 
         // Run inference on a thread pool thread to avoid blocking
-        return await Task.Run(() => pipeline.GenerateAudio(text, voiceName), cancellationToken);
+        return await Task.Run(() => pipeline.GenerateAudio(text, resolvedName), cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -95,8 +98,24 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
         if (pipeline is not null)
             return pipeline.GetAvailableVoices();
 
-        // If pipeline not yet loaded, return the default preset names
-        return Enum.GetNames<VibeVoicePreset>();
+        // If pipeline not yet loaded, return the internal preset names (consistent with what the pipeline returns)
+        return Enum.GetValues<VibeVoicePreset>()
+            .Select(p => p.ToVoiceName())
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Resolves a voice name, mapping short enum names (e.g. "Carter") to internal preset names (e.g. "en-Carter_man").
+    /// If the name is already an internal name, returns it unchanged.
+    /// </summary>
+    internal static string ResolveVoiceName(string voiceName)
+    {
+        // If it matches a preset enum name, convert to internal name
+        if (VibeVoicePresetExtensions.TryParseVoice(voiceName, out var preset))
+            return preset.ToVoiceName();
+
+        // Otherwise assume it's already an internal name (e.g. "en-Carter_man")
+        return voiceName;
     }
 
     private async Task<OnnxInferencePipeline> GetOrCreatePipelineAsync()

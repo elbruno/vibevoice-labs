@@ -33,12 +33,35 @@ public class VibeVoiceSynthesizerTests
     }
 
     [Fact]
-    public void GetAvailableVoices_ReturnsVoiceList()
+    public void GetAvailableVoices_ReturnsInternalVoiceNames()
     {
         using var tts = new VibeVoiceSynthesizer();
         string[] voices = tts.GetAvailableVoices();
         Assert.NotEmpty(voices);
-        Assert.Contains("Carter", voices);
+        Assert.Contains("en-Carter_man", voices);
+        Assert.Contains("en-Emma_woman", voices);
+    }
+
+    [Theory]
+    [InlineData("Carter", "en-Carter_man")]
+    [InlineData("carter", "en-Carter_man")]
+    [InlineData("Emma", "en-Emma_woman")]
+    [InlineData("Davis", "en-Davis_man")]
+    [InlineData("Frank", "en-Frank_man")]
+    [InlineData("Grace", "en-Grace_woman")]
+    [InlineData("Mike", "en-Mike_man")]
+    public void ResolveVoiceName_MapsShortNamesToInternalNames(string input, string expected)
+    {
+        Assert.Equal(expected, VibeVoiceSynthesizer.ResolveVoiceName(input));
+    }
+
+    [Theory]
+    [InlineData("en-Carter_man")]
+    [InlineData("en-Emma_woman")]
+    [InlineData("custom-voice")]
+    public void ResolveVoiceName_PassesThroughInternalNames(string input)
+    {
+        Assert.Equal(input, VibeVoiceSynthesizer.ResolveVoiceName(input));
     }
 
     [Fact]
