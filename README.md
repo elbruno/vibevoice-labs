@@ -172,6 +172,8 @@ builder.Services.AddVibeVoice(options =>
 | Grace | Female | `VibeVoicePreset.Grace` | `en-Grace_woman` |
 | Mike | Male | `VibeVoicePreset.Mike` | `en-Mike_man` |
 
+All 6 voice presets are available on [HuggingFace](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX/tree/main/voices) and are downloaded on-demand when first used.
+
 > **⚡ Migration note:** In versions prior to 0.2.0, `GetAvailableVoices()` returned all 6 voices regardless of download status. Starting with 0.2.0, it returns only voices **actually downloaded on disk**. Use `GetSupportedVoices()` to see all 6 known presets. Voices are auto-downloaded on first use with `GenerateAudioAsync()`, or pre-download with `EnsureVoiceAvailableAsync("Davis")`.
 
 **Language support:** The model is primarily trained on **English**, with experimental multilingual capabilities (e.g., Spanish, French, German). Results may vary for non-English text.
