@@ -159,11 +159,23 @@ internal sealed partial class BpeTokenizer
 
         foreach (var mergeEntry in mergesElement.Value.EnumerateArray())
         {
-            var mergeStr = mergeEntry.GetString();
-            if (mergeStr is null) continue;
-            var parts = mergeStr.Split(' ', 2);
-            if (parts.Length == 2)
-                merges.Add((parts[0], parts[1]));
+            if (mergeEntry.ValueKind == JsonValueKind.String)
+            {
+                // Format: "token1 token2"
+                var mergeStr = mergeEntry.GetString();
+                if (mergeStr is null) continue;
+                var parts = mergeStr.Split(' ', 2);
+                if (parts.Length == 2)
+                    merges.Add((parts[0], parts[1]));
+            }
+            else if (mergeEntry.ValueKind == JsonValueKind.Array && mergeEntry.GetArrayLength() == 2)
+            {
+                // Format: ["token1", "token2"]
+                var a = mergeEntry[0].GetString();
+                var b = mergeEntry[1].GetString();
+                if (a is not null && b is not null)
+                    merges.Add((a, b));
+            }
         }
         return merges;
     }
