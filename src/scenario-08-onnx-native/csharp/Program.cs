@@ -1,16 +1,15 @@
 // =============================================================================
-// VibeVoice TTS — Native ONNX Runtime Inference (Zero Python Dependencies)
+// VibeVoice TTS — Native ONNX Runtime Inference (ElBruno.VibeVoice Library)
 // =============================================================================
-// Runs the full VibeVoice TTS pipeline entirely in C# using ONNX Runtime.
-// Models must be pre-exported using the Python export tool (one-time step).
+// Runs the full VibeVoice TTS pipeline using the ElBruno.VibeVoice library.
+// Models are auto-downloaded from HuggingFace if not found locally.
 //
 // Usage:
 //   dotnet run -- --text "Hello world" --voice Carter --output output.wav
 // =============================================================================
 
 using System.Diagnostics;
-using VoiceLabs.OnnxNative.Pipeline;
-using VoiceLabs.OnnxNative.Utils;
+using ElBruno.VibeVoice;
 
 Console.WriteLine("🎙️  VibeVoice TTS — Native ONNX Runtime Inference");
 Console.WriteLine("   No Python. No HTTP. Pure C# + ONNX Runtime.");
@@ -23,7 +22,7 @@ Console.WriteLine();
 string text = "Hello! Welcome to VibeVoice Labs. This is a demonstration of native ONNX Runtime inference running entirely in C sharp.";
 string voice = "Carter";
 string outputPath = "output.wav";
-string modelsDir = Path.Combine("..", "models");
+string? modelsDir = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -48,78 +47,56 @@ for (int i = 0; i < args.Length; i++)
             Console.WriteLine("  --text <text>         Text to synthesize (default: demo sentence)");
             Console.WriteLine("  --voice <name>        Voice preset name (default: Carter)");
             Console.WriteLine("  --output <path>       Output WAV file path (default: output.wav)");
-            Console.WriteLine("  --models-dir <path>   Path to exported ONNX models (default: ../models)");
+            Console.WriteLine("  --models-dir <path>   Path to ONNX models (default: auto-download to shared cache)");
             Console.WriteLine("  --help                Show this help message");
             return;
     }
 }
 
-modelsDir = Path.GetFullPath(modelsDir);
 outputPath = Path.GetFullPath(outputPath);
 
 // =============================================================================
-// Step 1: Validate Model Files
+// Step 1: Create Synthesizer
 // =============================================================================
 
-Console.WriteLine("📂 Step 1: Validating model files...");
-Console.WriteLine($"   Models directory: {modelsDir}");
+var options = new VibeVoiceOptions();
+if (modelsDir is not null)
+    options.ModelPath = Path.GetFullPath(modelsDir);
 
-string[] requiredFiles = ["text_encoder.onnx", "diffusion_step.onnx", "acoustic_decoder.onnx", "tokenizer.json"];
-foreach (var file in requiredFiles)
+using var tts = new VibeVoiceSynthesizer(options);
+
+Console.WriteLine($"📂 Model path: {tts.ModelPath}");
+Console.WriteLine($"📥 Model available: {tts.IsModelAvailable}");
+Console.WriteLine();
+
+// =============================================================================
+// Step 2: Ensure Models Downloaded
+// =============================================================================
+
+Console.WriteLine("🔍 Checking/downloading model files...");
+var progress = new Progress<DownloadProgress>(p =>
 {
-    var fullPath = Path.Combine(modelsDir, file);
-    if (!File.Exists(fullPath))
-    {
-        Console.WriteLine($"   ❌ Missing: {file}");
-        Console.WriteLine();
-        Console.WriteLine("💡 Export models first:");
-        Console.WriteLine("   cd src/scenario-08-onnx-native/export");
-        Console.WriteLine("   pip install -r requirements_export.txt");
-        Console.WriteLine("   python export_model.py --output ../models");
-        return;
-    }
-    Console.WriteLine($"   ✅ Found: {file}");
-}
+    if (p.Stage == DownloadStage.Downloading)
+        Console.Write($"\r   ⬇️  {p.Message}                    ");
+    else
+        Console.WriteLine($"   {p.Stage}: {p.Message}");
+});
+
+await tts.EnsureModelAvailableAsync(progress);
 Console.WriteLine();
 
 // =============================================================================
-// Step 2: Load Pipeline
+// Step 3: Generate Audio
 // =============================================================================
 
-Console.WriteLine("🧠 Step 2: Loading ONNX models into memory...");
-var loadTimer = Stopwatch.StartNew();
-
-using var pipeline = new VibeVoiceOnnxPipeline(modelsDir);
-
-loadTimer.Stop();
-Console.WriteLine($"   ✅ Pipeline loaded in {loadTimer.Elapsed.TotalSeconds:F2}s");
+Console.WriteLine($"🗣️  Voice:  {voice}");
+Console.WriteLine($"📝 Text:   \"{(text.Length > 80 ? text[..77] + "..." : text)}\"");
+Console.WriteLine($"💾 Output: {outputPath}");
 Console.WriteLine();
 
-// =============================================================================
-// Step 3: Configure Synthesis
-// =============================================================================
-
-Console.WriteLine($"🗣️  Step 3: Configuring synthesis...");
-Console.WriteLine($"   Voice:  {voice}");
-Console.WriteLine($"   Text:   \"{(text.Length > 80 ? text[..77] + "..." : text)}\"");
-Console.WriteLine($"   Output: {outputPath}");
-
-var availableVoices = pipeline.GetAvailableVoices();
-if (availableVoices.Length > 0)
-{
-    Console.WriteLine($"   📋 Available voices: {string.Join(", ", availableVoices)}");
-}
-Console.WriteLine();
-
-// =============================================================================
-// Step 4: Generate Audio
-// =============================================================================
-
-Console.WriteLine("🎵 Step 4: Generating audio...");
-Console.WriteLine("   ⏳ Running inference (text → tokens → latents → waveform)...");
-
+Console.WriteLine("🎵 Generating audio...");
 var inferenceTimer = Stopwatch.StartNew();
-float[] audioSamples = pipeline.GenerateAudio(text, voice);
+float[] audioSamples = await tts.GenerateAudioAsync(text, voice);
 inferenceTimer.Stop();
 
 double durationSeconds = audioSamples.Length / 24000.0;
@@ -129,20 +106,11 @@ Console.WriteLine($"   📊 Real-time factor: {inferenceTimer.Elapsed.TotalSecon
 Console.WriteLine();
 
 // =============================================================================
-// Step 5: Save WAV File
+// Step 4: Save WAV File
 // =============================================================================
 
-Console.WriteLine("💾 Step 5: Saving WAV file...");
-AudioWriter.SaveWav(outputPath, audioSamples, sampleRate: 24000);
-
+tts.SaveWav(outputPath, audioSamples);
 var fileInfo = new FileInfo(outputPath);
-Console.WriteLine($"   ✅ Saved: {outputPath}");
-Console.WriteLine($"   📏 Size: {fileInfo.Length / 1024.0:F1} KB");
+Console.WriteLine($"💾 Saved: {outputPath} ({fileInfo.Length / 1024.0:F1} KB)");
 Console.WriteLine();
-
-// =============================================================================
-// Done!
-// =============================================================================
-
-Console.WriteLine("🎉 Done! Audio generated successfully.");
-Console.WriteLine("🎧 Open the WAV file in your favorite audio player to listen.");
+Console.WriteLine("🎉 Done! Open the WAV file to listen.");

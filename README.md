@@ -47,7 +47,7 @@ src/scenario-02-fullstack/
 ```
 
 ### Scenario 3: Simple C# Console App
-A .NET 8.0 console app that runs VibeVoice TTS using **ONNX Runtime** — pure native C# with no Python dependency at runtime. **Beginner level.**
+A .NET 8.0 console app that runs VibeVoice TTS using the **ElBruno.VibeVoice** library — pure native C# with auto-download from HuggingFace. **Beginner level.**
 
 ```
 src/scenario-03-csharp-simple/
@@ -298,6 +298,7 @@ vibevoice-labs/
 | **TTS Engine** | [VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) | Text-to-speech synthesis |
 | **TTS Package** | [VibeVoice](https://github.com/microsoft/VibeVoice) (installed from Git) | Streaming TTS inference |
 | **Native Inference** | [ONNX Runtime](https://onnxruntime.ai/) | Native C# model inference (no Python) |
+| **C# TTS Library** | [ElBruno.VibeVoice](src/ElBruno.VibeVoice/) | Reusable .NET library with auto-download from 🤗 HuggingFace |
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com/) + [Python](https://python.org) | REST API for TTS |
 | **Frontend** | [Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor) + [.NET 10](https://dotnet.microsoft.com/) | Interactive web UI |
 | **Orchestration** | [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/) | Service discovery & health checks |

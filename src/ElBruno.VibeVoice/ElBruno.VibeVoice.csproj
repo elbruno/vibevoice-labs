@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ElBruno.VibeVoice</RootNamespace>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>ElBruno.VibeVoice</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Bruno Capuano</Authors>
+    <Description>A .NET library for VibeVoice text-to-speech using ONNX Runtime. Supports automatic model download from HuggingFace, voice presets, and native C# inference with no Python dependency.</Description>
+    <PackageTags>tts;text-to-speech;vibevoice;onnx;onnxruntime;speech;audio;ai;ml</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/elbruno/vibevoice-labs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/elbruno/vibevoice-labs</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.17.*" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" Condition="Exists('..\..\README.md')" />
+  </ItemGroup>
+
+</Project>

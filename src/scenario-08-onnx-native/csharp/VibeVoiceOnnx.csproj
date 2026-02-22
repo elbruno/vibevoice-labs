@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.17.*" />
+    <ProjectReference Include="..\..\ElBruno.VibeVoice\ElBruno.VibeVoice.csproj" />
     <PackageReference Include="NAudio" Version="2.2.*" />
   </ItemGroup>
 
