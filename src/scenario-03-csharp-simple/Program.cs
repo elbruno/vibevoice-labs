@@ -41,6 +41,9 @@ var samples = new[]
 
     ("This is a text to speech demo.",
      VibeVoicePreset.Emma, "output_emma.wav", "English (Emma)"),
+
+    ("Hola! Bienvenidos a VibeVoice Labs.",
+     VibeVoicePreset.Carter, "output_spanish.wav", "Spanish (Carter)"),
 };
 
 foreach (var (text, voice, outputPath, language) in samples)
