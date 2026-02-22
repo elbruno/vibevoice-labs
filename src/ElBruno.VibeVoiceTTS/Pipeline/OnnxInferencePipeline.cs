@@ -49,24 +49,26 @@ internal sealed class OnnxInferencePipeline : IDisposable
         _sessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
         ConfigureExecutionProvider(_sessionOptions, executionProvider, gpuDeviceId);
 
-        // DirectML has a known incompatibility with dynamic Reshape nodes in the KV-cache LM models.
-        // Use CPU for LM models and GPU for compute-heavy models (prediction_head, acoustic_decoder).
-        SessionOptions lmOptions;
+        // DirectML has known incompatibilities with dynamic tensor shapes in:
+        // - LM models: Reshape nodes with variable sequence lengths
+        // - acoustic_decoder: ConvTranspose nodes with variable-length latent input
+        // Use CPU for these models; GPU for fixed-shape models (prediction_head, acoustic_connector, eos_classifier).
+        SessionOptions cpuOptions;
         if (executionProvider == ExecutionProvider.DirectML)
         {
             _cpuSessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
-            lmOptions = _cpuSessionOptions;
+            cpuOptions = _cpuSessionOptions;
         }
         else
         {
-            lmOptions = _sessionOptions;
+            cpuOptions = _sessionOptions;
         }
 
-        _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), lmOptions);
-        _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), lmOptions);
-        _ttsLmStep = new InferenceSession(Path.Combine(modelsDir, "tts_lm_step.onnx"), lmOptions);
+        _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), cpuOptions);
+        _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), cpuOptions);
+        _ttsLmStep = new InferenceSession(Path.Combine(modelsDir, "tts_lm_step.onnx"), cpuOptions);
         _predictionHead = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), _sessionOptions);
-        _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), _sessionOptions);
+        _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), cpuOptions);
         _acousticConnector = new InferenceSession(Path.Combine(modelsDir, "acoustic_connector.onnx"), _sessionOptions);
         _eosClassifier = new InferenceSession(Path.Combine(modelsDir, "eos_classifier.onnx"), _sessionOptions);
         _typeEmbeddings = VoicePresetLoader.ReadNpyFile(Path.Combine(modelsDir, "type_embeddings.npy"));

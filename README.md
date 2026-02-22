@@ -119,7 +119,7 @@ var options = new VibeVoiceOptions
 using var tts = new VibeVoiceSynthesizer(options);
 ```
 
-> **💡 Note:** If the selected GPU provider is unavailable (missing NuGet package or no compatible GPU), the library automatically falls back to CPU inference. When using DirectML, the language model components run on CPU while compute-heavy models (diffusion, acoustic decoder) use GPU — this works around a known DirectML limitation with dynamic Reshape operations.
+> **💡 Note:** If the selected GPU provider is unavailable (missing NuGet package or no compatible GPU), the library automatically falls back to CPU inference. When using DirectML, models with dynamic tensor shapes (LM models, acoustic decoder) run on CPU while fixed-shape models (prediction head, connector, EOS classifier) use GPU — this works around known DirectML limitations with dynamic Reshape and ConvTranspose operations.
 
 ### 6) Dependency Injection
 
