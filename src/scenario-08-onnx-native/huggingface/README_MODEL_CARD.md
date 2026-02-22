@@ -42,7 +42,7 @@ model-index:
 
 This repository contains the VibeVoice-Realtime-0.5B model exported to ONNX format as three subcomponents. It enables running VibeVoice TTS inference using [ONNX Runtime](https://onnxruntime.ai/) in **C#, Python, C++, Java, JavaScript**, or any language with an ONNX Runtime binding — no PyTorch or Python required at runtime.
 
-📦 **Source code & examples:** [github.com/elbruno/vibevoice-labs](https://github.com/elbruno/vibevoice-labs) (see `src/scenario-08-onnx-native/`)
+📦 **Source code & examples:** [github.com/elbruno/ElBruno.VibeVoiceTTS](https://github.com/elbruno/ElBruno.VibeVoiceTTS) (see `src/scenario-08-onnx-native/`)
 
 ## Model Overview
 
@@ -56,7 +56,7 @@ This repository contains the VibeVoice-Realtime-0.5B model exported to ONNX form
 | **First audible latency** | ~300 ms (hardware dependent) |
 | **Voices** | 6 English presets (Carter, Davis, Emma, Frank, Grace, Mike) |
 | **Languages** | English (primary), experimental multilingual |
-| **GitHub repo** | [elbruno/vibevoice-labs](https://github.com/elbruno/vibevoice-labs) |
+| **GitHub repo** | [elbruno/ElBruno.VibeVoiceTTS](https://github.com/elbruno/ElBruno.VibeVoiceTTS) |
 
 ## Architecture — Three ONNX Subcomponents
 
@@ -119,7 +119,7 @@ Console.WriteLine("✅ All ONNX models loaded!");
 
 **NuGet package:** `Microsoft.ML.OnnxRuntime` (1.17+)
 
-For the complete C# inference pipeline with tokenizer, diffusion scheduler, and audio output, see: [vibevoice-labs/scenario-08-onnx-native](https://github.com/elbruno/vibevoice-labs/tree/main/src/scenario-08-onnx-native/csharp)
+For the complete C# inference pipeline with tokenizer, diffusion scheduler, and audio output, see: [ElBruno.VibeVoiceTTS/scenario-08-onnx-native](https://github.com/elbruno/ElBruno.VibeVoiceTTS/tree/main/src/scenario-08-onnx-native/csharp)
 
 ## How This Was Created
 
@@ -131,7 +131,7 @@ The ONNX files were exported from the original PyTorch model using `torch.onnx.e
 
 Voice presets were converted from PyTorch `.pt` tensors to NumPy `.npy` format.
 
-Export scripts: [vibevoice-labs/scenario-08-onnx-native/export](https://github.com/elbruno/vibevoice-labs/tree/main/src/scenario-08-onnx-native/export)
+Export scripts: [ElBruno.VibeVoiceTTS/scenario-08-onnx-native/export](https://github.com/elbruno/ElBruno.VibeVoiceTTS/tree/main/src/scenario-08-onnx-native/export)
 
 ## Inference Pipeline
 
@@ -241,12 +241,12 @@ We do not recommend using VibeVoice in commercial or real-world applications wit
 - 📄 **Technical Report:** [arXiv:2508.19205](https://arxiv.org/abs/2508.19205)
 - 🏠 **Project Page:** [microsoft.github.io/VibeVoice](https://microsoft.github.io/VibeVoice)
 - 💻 **Source Code:** [github.com/microsoft/VibeVoice](https://github.com/microsoft/VibeVoice)
-- 🔧 **Export Tools:** [vibevoice-labs/scenario-08-onnx-native](https://github.com/elbruno/vibevoice-labs/tree/main/src/scenario-08-onnx-native)
+- 🔧 **Export Tools:** [ElBruno.VibeVoiceTTS/scenario-08-onnx-native](https://github.com/elbruno/ElBruno.VibeVoiceTTS/tree/main/src/scenario-08-onnx-native)
 - 📦 **Original Model:** [microsoft/VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B)
 
 ## Contact
 
-For issues with the ONNX conversion, open an issue at [vibevoice-labs](https://github.com/elbruno/vibevoice-labs/issues).
+For issues with the ONNX conversion, open an issue at [ElBruno.VibeVoiceTTS](https://github.com/elbruno/ElBruno.VibeVoiceTTS/issues).
 
 For issues with the original VibeVoice model, contact [VibeVoice@microsoft.com](mailto:VibeVoice@microsoft.com).
 

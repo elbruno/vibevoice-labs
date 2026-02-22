@@ -599,7 +599,7 @@ A: Modify `tts_service.py` to add entries to `VOICES_REGISTRY` and `VOICE_ID_TO_
 ## Getting Help
 
 - **Documentation:** [Getting Started](GETTING_STARTED.md) | [Architecture](ARCHITECTURE.md) | [API Reference](API_REFERENCE.md)
-- **Issues:** [GitHub Issues](https://github.com/elbruno/vibevoice-labs/issues)
+- **Issues:** [GitHub Issues](https://github.com/elbruno/ElBruno.VibeVoiceTTS/issues)
 - **VibeVoice:** [Microsoft VibeVoice](https://github.com/microsoft/VibeVoice)
 
 ---

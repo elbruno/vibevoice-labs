@@ -80,9 +80,9 @@
   },
 
   "export_info": {
-    "exported_by": "vibevoice-labs",
+    "exported_by": "ElBruno.VibeVoiceTTS",
     "export_tool": "torch.onnx.export",
-    "source_repo": "https://github.com/elbruno/vibevoice-labs",
+    "source_repo": "https://github.com/elbruno/ElBruno.VibeVoiceTTS",
     "export_scripts": "src/scenario-08-onnx-native/export/"
   }
 }

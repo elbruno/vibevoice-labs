@@ -13,8 +13,8 @@
     <Description>A .NET library for VibeVoice text-to-speech using ONNX Runtime. Supports automatic model download from HuggingFace, voice presets, and native C# inference with no Python dependency.</Description>
     <PackageTags>tts;text-to-speech;vibevoice;onnx;onnxruntime;speech;audio;ai;ml</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/elbruno/vibevoice-labs</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/elbruno/vibevoice-labs</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/elbruno/ElBruno.VibeVoiceTTS</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/elbruno/ElBruno.VibeVoiceTTS</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>nuget_01.png</PackageIcon>

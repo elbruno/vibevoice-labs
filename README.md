@@ -2,10 +2,10 @@
 
 [![NuGet](https://img.shields.io/nuget/v/ElBruno.VibeVoiceTTS.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.VibeVoiceTTS.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS)
-[![Build Status](https://github.com/elbruno/vibevoice-labs/actions/workflows/publish.yml/badge.svg)](https://github.com/elbruno/vibevoice-labs/actions/workflows/publish.yml)
+[![Build Status](https://github.com/elbruno/ElBruno.VibeVoiceTTS/actions/workflows/publish.yml/badge.svg)](https://github.com/elbruno/ElBruno.VibeVoiceTTS/actions/workflows/publish.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![HuggingFace](https://img.shields.io/badge/🤗_HuggingFace-ONNX_Models-orange?style=flat-square)](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX)
-[![GitHub stars](https://img.shields.io/github/stars/elbruno/vibevoice-labs?style=social)](https://github.com/elbruno/vibevoice-labs)
+[![GitHub stars](https://img.shields.io/github/stars/elbruno/ElBruno.VibeVoiceTTS?style=social)](https://github.com/elbruno/ElBruno.VibeVoiceTTS)
 [![Twitter Follow](https://img.shields.io/twitter/follow/elbruno?style=social)](https://twitter.com/elbruno)
 
 A .NET library for text-to-speech synthesis using Microsoft's [VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) — native C# inference via ONNX Runtime, no Python required at runtime.
@@ -154,8 +154,8 @@ The model includes 9 ONNX files (autoregressive pipeline with KV-cache) and 6 vo
 ## Building from Source
 
 ```bash
-git clone https://github.com/elbruno/vibevoice-labs.git
-cd vibevoice-labs
+git clone https://github.com/elbruno/ElBruno.VibeVoiceTTS.git
+cd ElBruno.VibeVoiceTTS
 dotnet build src/ElBruno.VibeVoiceTTS/ElBruno.VibeVoiceTTS.csproj
 dotnet test src/ElBruno.VibeVoiceTTS.Tests/ElBruno.VibeVoiceTTS.Tests.csproj
 ```

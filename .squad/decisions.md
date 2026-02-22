@@ -26,7 +26,7 @@ This file contains all team decisions. Append-only.
 ## Directory Layout
 
 ```
-vibevoice-labs/
+ElBruno.VibeVoiceTTS/
 ├── README.md                          # Project overview
 ├── docs/
 │   └── user-manual.md                 # User documentation

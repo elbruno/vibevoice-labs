@@ -53,7 +53,7 @@ Console.WriteLine("✅ ONNX models loaded!");
 // Step 2: Tokenize Input Text
 // =============================================================================
 // NOTE: For a full BPE tokenizer implementation, see:
-// https://github.com/elbruno/vibevoice-labs/blob/main/src/scenario-08-onnx-native/csharp/Pipeline/VibeVoiceTokenizer.cs
+// https://github.com/elbruno/ElBruno.VibeVoiceTTS/blob/main/src/scenario-08-onnx-native/csharp/Pipeline/VibeVoiceTokenizer.cs
 
 string text = "Hello! This is VibeVoice running natively in C#.";
 // Placeholder: replace with actual tokenization
@@ -202,7 +202,7 @@ Console.WriteLine("✅ Saved output.wav");
 
 The full C# inference pipeline (with proper BPE tokenizer, diffusion scheduler, voice preset loading, and SIMD-optimized math) is available at:
 
-**[vibevoice-labs/scenario-08-onnx-native/csharp](https://github.com/elbruno/vibevoice-labs/tree/main/src/scenario-08-onnx-native/csharp)**
+**[ElBruno.VibeVoiceTTS/scenario-08-onnx-native/csharp](https://github.com/elbruno/ElBruno.VibeVoiceTTS/tree/main/src/scenario-08-onnx-native/csharp)**
 
 Key classes:
 - `VibeVoiceOnnxPipeline` — Main orchestrator

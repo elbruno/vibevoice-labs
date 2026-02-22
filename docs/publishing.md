@@ -23,7 +23,7 @@ These steps only need to be done once.
 | Setting | Value |
 |---------|-------|
 | **Repository Owner** | `elbruno` |
-| **Repository** | `vibevoice-labs` |
+| **Repository** | `ElBruno.VibeVoiceTTS` |
 | **Workflow File** | `publish.yml` |
 | **Environment** | `release` |
 
