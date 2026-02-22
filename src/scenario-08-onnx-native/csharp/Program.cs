@@ -1,7 +1,7 @@
 // =============================================================================
-// VibeVoice TTS — Native ONNX Runtime Inference (ElBruno.VibeVoice Library)
+// VibeVoice TTS — Native ONNX Runtime Inference (ElBruno.VibeVoiceTTS Library)
 // =============================================================================
-// Runs the full VibeVoice TTS pipeline using the ElBruno.VibeVoice library.
+// Runs the full VibeVoice TTS pipeline using the ElBruno.VibeVoiceTTS library.
 // Models are auto-downloaded from HuggingFace if not found locally.
 //
 // Usage:
@@ -9,7 +9,7 @@
 // =============================================================================
 
 using System.Diagnostics;
-using ElBruno.VibeVoice;
+using ElBruno.VibeVoiceTTS;
 
 Console.WriteLine("🎙️  VibeVoice TTS — Native ONNX Runtime Inference");
 Console.WriteLine("   No Python. No HTTP. Pure C# + ONNX Runtime.");

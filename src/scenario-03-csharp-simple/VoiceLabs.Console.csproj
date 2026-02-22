@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ElBruno.VibeVoice\ElBruno.VibeVoice.csproj" />
+    <ProjectReference Include="..\ElBruno.VibeVoiceTTS\ElBruno.VibeVoiceTTS.csproj" />
   </ItemGroup>
 
 </Project>

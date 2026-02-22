@@ -1,4 +1,4 @@
-namespace ElBruno.VibeVoice;
+namespace ElBruno.VibeVoiceTTS;
 
 /// <summary>
 /// Built-in voice presets for VibeVoice TTS.

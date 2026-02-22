@@ -4,10 +4,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>ElBruno.VibeVoice</RootNamespace>
+    <RootNamespace>ElBruno.VibeVoiceTTS</RootNamespace>
 
     <!-- NuGet Package Metadata -->
-    <PackageId>ElBruno.VibeVoice</PackageId>
+    <PackageId>ElBruno.VibeVoiceTTS</PackageId>
     <Version>0.1.0</Version>
     <Authors>Bruno Capuano</Authors>
     <Description>A .NET library for VibeVoice text-to-speech using ONNX Runtime. Supports automatic model download from HuggingFace, voice presets, and native C# inference with no Python dependency.</Description>
@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
-      <_Parameter1>ElBruno.VibeVoice.Tests</_Parameter1>
+      <_Parameter1>ElBruno.VibeVoiceTTS.Tests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 

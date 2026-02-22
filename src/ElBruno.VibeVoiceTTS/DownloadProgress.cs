@@ -1,4 +1,4 @@
-namespace ElBruno.VibeVoice;
+namespace ElBruno.VibeVoiceTTS;
 
 /// <summary>
 /// Represents the current stage of model download.

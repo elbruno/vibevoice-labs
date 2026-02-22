@@ -1,10 +1,10 @@
 // =============================================================================
-// VibeVoice TTS - Simple C# Console Demo (ElBruno.VibeVoice Library)
+// VibeVoice TTS - Simple C# Console Demo (ElBruno.VibeVoiceTTS Library)
 // =============================================================================
-// Uses the ElBruno.VibeVoice library to run VibeVoice TTS entirely in C#.
+// Uses the ElBruno.VibeVoiceTTS library to run VibeVoice TTS entirely in C#.
 // Models are auto-downloaded from HuggingFace if not found locally.
 
-using ElBruno.VibeVoice;
+using ElBruno.VibeVoiceTTS;
 
 Console.WriteLine("🎙️  VibeVoice TTS — C# Console Demo");
 Console.WriteLine();

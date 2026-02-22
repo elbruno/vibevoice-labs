@@ -1,7 +1,7 @@
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
-namespace ElBruno.VibeVoice.Pipeline;
+namespace ElBruno.VibeVoiceTTS.Pipeline;
 
 /// <summary>
 /// Orchestrates the full VibeVoice TTS autoregressive pipeline using ONNX models.

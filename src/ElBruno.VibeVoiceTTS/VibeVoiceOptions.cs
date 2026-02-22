@@ -1,4 +1,4 @@
-namespace ElBruno.VibeVoice;
+namespace ElBruno.VibeVoiceTTS;
 
 /// <summary>
 /// Configuration options for the VibeVoice synthesizer.

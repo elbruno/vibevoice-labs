@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace ElBruno.VibeVoice.Pipeline;
+namespace ElBruno.VibeVoiceTTS.Pipeline;
 
 /// <summary>
 /// Byte-Pair Encoding tokenizer that loads from HuggingFace tokenizer.json format.

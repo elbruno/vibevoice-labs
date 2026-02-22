@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VoiceLabs.ServiceDefaults\VoiceLabs.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\..\ElBruno.VibeVoice\ElBruno.VibeVoice.csproj" />
+    <ProjectReference Include="..\..\ElBruno.VibeVoiceTTS\ElBruno.VibeVoiceTTS.csproj" />
   </ItemGroup>
 
 </Project>

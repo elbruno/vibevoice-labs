@@ -1,6 +1,6 @@
-using ElBruno.VibeVoice.Pipeline;
+using ElBruno.VibeVoiceTTS.Pipeline;
 
-namespace ElBruno.VibeVoice.Tests;
+namespace ElBruno.VibeVoiceTTS.Tests;
 
 public class DiffusionSchedulerTests
 {

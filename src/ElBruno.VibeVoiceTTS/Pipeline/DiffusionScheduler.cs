@@ -1,4 +1,4 @@
-namespace ElBruno.VibeVoice.Pipeline;
+namespace ElBruno.VibeVoiceTTS.Pipeline;
 
 /// <summary>
 /// DPM-Solver++ multistep scheduler (midpoint, order 2, v_prediction).

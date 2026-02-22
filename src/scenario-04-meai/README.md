@@ -1,8 +1,8 @@
 # Scenario 4: Full C# Text-to-Speech with Aspire
 
-A full-stack C# application demonstrating VibeVoice TTS with a **C# WebAPI backend** using the `ElBruno.VibeVoice` library, a Blazor frontend, and .NET Aspire orchestration. **Zero Python dependency at runtime.**
+A full-stack C# application demonstrating VibeVoice TTS with a **C# WebAPI backend** using the `ElBruno.VibeVoiceTTS` library, a Blazor frontend, and .NET Aspire orchestration. **Zero Python dependency at runtime.**
 
-**Pattern:** 📝 Type text → C# WebAPI (ElBruno.VibeVoice) → 🔊 Audio response
+**Pattern:** 📝 Type text → C# WebAPI (ElBruno.VibeVoiceTTS) → 🔊 Audio response
 
 ## Architecture
 
@@ -11,7 +11,7 @@ Browser (Blazor)
   ↕ HTTP (POST /api/tts)
 Aspire AppHost
   ├── backend (C# WebAPI)
-  │   └── TTS: ElBruno.VibeVoice (ONNX Runtime)
+  │   └── TTS: ElBruno.VibeVoiceTTS (ONNX Runtime)
   │       └── Models: auto-downloaded from HuggingFace
   └── frontend (Blazor Server)
       ├── Text input + voice selection
@@ -26,7 +26,7 @@ Aspire AppHost
 | .NET 10 SDK | [Download](https://dotnet.microsoft.com/download/dotnet/10.0) |
 | Aspire workload | `dotnet workload install aspire` |
 
-> **No Python required!** The C# backend uses `ElBruno.VibeVoice` with ONNX Runtime for native inference.
+> **No Python required!** The C# backend uses `ElBruno.VibeVoiceTTS` with ONNX Runtime for native inference.
 
 ## Quick Start
 
@@ -69,7 +69,7 @@ scenario-04-meai/
 │   └── AppHost.cs                    # Orchestrates backend + frontend
 ├── VoiceLabs.Api/                    # C# WebAPI backend
 │   ├── Program.cs                    # Minimal API with TTS endpoints
-│   └── VoiceLabs.Api.csproj          # References ElBruno.VibeVoice
+│   └── VoiceLabs.Api.csproj          # References ElBruno.VibeVoiceTTS
 ├── VoiceLabs.ConversationWeb/        # Blazor frontend
 │   ├── Program.cs                    # Aspire service defaults + HttpClient
 │   └── Components/Pages/Home.razor   # Conversation UI

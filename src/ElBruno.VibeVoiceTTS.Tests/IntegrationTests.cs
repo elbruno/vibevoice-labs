@@ -1,6 +1,6 @@
-using ElBruno.VibeVoice;
+using ElBruno.VibeVoiceTTS;
 
-namespace ElBruno.VibeVoice.Tests;
+namespace ElBruno.VibeVoiceTTS.Tests;
 
 /// <summary>
 /// Integration tests that require ONNX model files to be present.

@@ -1,4 +1,4 @@
-using ElBruno.VibeVoice;
+using ElBruno.VibeVoiceTTS;
 
 var builder = WebApplication.CreateBuilder(args);
 

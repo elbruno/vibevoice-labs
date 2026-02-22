@@ -2,7 +2,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace ElBruno.VibeVoice;
+namespace ElBruno.VibeVoiceTTS;
 
 /// <summary>
 /// Manages model file downloading from HuggingFace, validation, and caching.

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ElBruno.VibeVoice.Extensions;
+namespace ElBruno.VibeVoiceTTS.Extensions;
 
 /// <summary>
 /// Extension methods for registering VibeVoice services with dependency injection.

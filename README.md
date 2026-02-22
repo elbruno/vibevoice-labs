@@ -1,314 +1,155 @@
 # 🎙️ VibeVoice Labs
 
-> Showcase project demonstrating Microsoft's VibeVoice TTS with native C# inference via ONNX Runtime
-
-[![NuGet](https://img.shields.io/nuget/v/ElBruno.VibeVoice.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoice)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.VibeVoice.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoice)
+[![NuGet](https://img.shields.io/nuget/v/ElBruno.VibeVoiceTTS.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.VibeVoiceTTS.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS)
 [![Build Status](https://github.com/elbruno/vibevoice-labs/actions/workflows/publish.yml/badge.svg)](https://github.com/elbruno/vibevoice-labs/actions/workflows/publish.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![HuggingFace](https://img.shields.io/badge/🤗_HuggingFace-ONNX_Models-orange?style=flat-square)](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX)
 [![GitHub stars](https://img.shields.io/github/stars/elbruno/vibevoice-labs?style=social)](https://github.com/elbruno/vibevoice-labs)
 [![Twitter Follow](https://img.shields.io/twitter/follow/elbruno?style=social)](https://twitter.com/elbruno)
 
-<!-- 
-![VoiceLabs Demo](docs/images/demo.gif)
--->
+A .NET library for text-to-speech synthesis using Microsoft's [VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) — native C# inference via ONNX Runtime, no Python required at runtime.
 
-## ✨ Features
+## Features
 
-- 🔊 **Natural Text-to-Speech** powered by VibeVoice-Realtime-0.5B (~200ms latency)
-- 📦 **NuGet Library** — [`ElBruno.VibeVoice`](https://www.nuget.org/packages/ElBruno.VibeVoice) for native C# TTS with auto-download from HuggingFace
+- 🔊 **Natural Text-to-Speech** — High-quality speech synthesis powered by VibeVoice-Realtime-0.5B
+- 📦 **NuGet Package** — [`ElBruno.VibeVoiceTTS`](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS) — install and start generating speech in minutes
 - 🤖 **Pure C# Inference** — ONNX Runtime, zero Python dependency at runtime
-- 🌍 **6 English Voice Presets** (Carter, Davis, Emma, Frank, Grace, Mike) + multilingual experimental voices
-- 🎨 **Modern Blazor UI** with glassmorphism design
-- 🚀 **.NET Aspire Orchestration** for seamless service discovery
-- 📥 **Audio Download** as WAV files
+- 📥 **Auto-Download** — Models automatically downloaded from 🤗 HuggingFace on first use
+- 🌍 **6 Voice Presets** — Carter, Davis, Emma, Frank, Grace, Mike (English voices with multilingual experimental support)
+- 💉 **Dependency Injection** — First-class `IServiceCollection` integration
+- 🖥️ **Cross-Platform** — Windows, Linux, macOS, MAUI-ready
 
-## 📦 Scenarios
-
-> **Note:** Python is used in some scenarios only for **ONNX model export** and **model downloading** from HuggingFace. The C# scenarios (3, 4, 7, 8) run entirely in .NET with no Python dependency at runtime.
-
-This project includes eight ways to explore VibeVoice across Python and .NET:
-
-### Scenario 1: Simple Python Script
-A minimal, step-by-step Python script perfect for learning VibeVoice basics. **Beginner level.**
-
-```
-src/scenario-01-simple/
-├── main.py           # Step-by-step TTS demo with comments
-├── requirements.txt  # Python dependencies
-└── README.md         # Quick start guide
-```
-
-### Scenario 2: Full-Stack Application
-A complete web application with Blazor frontend, FastAPI backend, and Aspire orchestration. **Intermediate level.**
-
-```
-src/scenario-02-fullstack/
-├── backend/                  # Python FastAPI + VibeVoice
-├── VoiceLabs.AppHost/        # Aspire orchestration
-├── VoiceLabs.ServiceDefaults/
-├── VoiceLabs.Web/            # Blazor .NET 10 frontend
-└── VoiceLabs.slnx            # Solution file
-```
-
-### Scenario 3: Simple C# Console App
-A .NET 8.0 console app that runs VibeVoice TTS using the **ElBruno.VibeVoice** library — pure native C# with auto-download from HuggingFace. **Beginner level.**
-
-```
-src/scenario-03-csharp-simple/
-├── Program.cs              # C# host using ONNX Runtime
-├── .csproj                 # Project file with ONNX Runtime NuGet
-└── README.md               # Quick start guide
-```
-
-### Scenario 4: Full C# TTS with Aspire
-A full-stack C# application with WebAPI backend using `ElBruno.VibeVoice`, Blazor frontend, and Aspire orchestration. **Zero Python dependency at runtime.** **Intermediate level.**
-
-```
-src/scenario-04-meai/
-├── VoiceLabs.Api/                    # C# WebAPI (ElBruno.VibeVoice)
-├── VoiceLabs.ConversationHost/       # Aspire orchestration
-├── VoiceLabs.ServiceDefaults/
-├── VoiceLabs.ConversationWeb/        # Blazor frontend
-└── VoiceLabs.slnx                    # Solution file
-```
-
-### Scenario 5: Batch TTS Processing
-A Python CLI that converts a folder of .txt files to .wav. Uses VibeVoice directly, supports YAML front-matter for per-file voice, parallel processing. **Intermediate level.**
-
-```
-src/scenario-05-batch-processing/
-├── batch_tts.py     # Batch processing CLI
-├── requirements.txt # Python dependencies
-└── README.md        # Quick start guide
-```
-
-### Scenario 6: Real-Time Streaming
-A Python script demonstrating chunked audio playback for low-latency TTS applications. **Intermediate level.**
-
-```
-src/scenario-06-streaming-realtime/
-├── stream_tts.py    # Real-time streaming implementation
-├── requirements.txt # Python dependencies
-└── README.md        # Quick start guide
-```
-
-### Scenario 7: MAUI Cross-Platform App
-A .NET 10 MAUI app for Windows/macOS/Android/iOS with voice selection and audio playback. **Advanced level.**
-
-```
-src/scenario-07-maui-mobile/
-├── MauiProgram.cs           # MAUI app setup
-├── VoiceLabs.Mobile.csproj  # Project file
-├── Pages/                   # MAUI pages
-└── README.md                # Quick start guide
-```
-
-### Scenario 8: Native C# ONNX Inference
-Export VibeVoice model to ONNX subcomponents and run inference **entirely in C#** — zero Python dependency. Includes Python export tools and full C# inference pipeline. ONNX models are published on 🤗 [Hugging Face](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX). **Advanced level.**
-
-```
-src/scenario-08-onnx-native/
-├── export/                  # Python export tools (one-time use)
-├── models/                  # Exported ONNX files (gitignored)
-├── csharp/                  # C# native inference pipeline
-│   ├── Pipeline/            # Tokenizer, diffusion, decoder
-│   └── Utils/               # Audio writer, tensor helpers
-└── README.md                # Quick start guide
-```
-
-## 🛠️ Prerequisites
-
-| Requirement | Version | Installation |
-|------------|---------|--------------|
-| Python | 3.11+ | [python.org](https://python.org) |
-| Git | Latest | [git-scm.com](https://git-scm.com/) (required for pip install from GitHub) |
-| .NET SDK | 10.0+ | [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) |
-| Aspire Workload | - | `dotnet workload install aspire` |
-| GPU (optional) | CUDA 12.1+ | Recommended for faster inference |
-
-## 🚀 Quick Start
-
-### One-Time Setup (All Python Scenarios)
-
-Create a single virtual environment at the repo root:
+## Installation
 
 ```bash
-# From the repo root
-python -m venv .venv
-
-# Activate (Windows PowerShell)
-.venv\Scripts\Activate.ps1
-
-# Activate (Windows CMD)
-.venv\Scripts\activate.bat
-
-# Activate (Linux/macOS)
-source .venv/bin/activate
-
-# Install all Python dependencies
-pip install -r requirements.txt
+dotnet add package ElBruno.VibeVoiceTTS
 ```
 
-> **Note:** First installation downloads the VibeVoice model (~1-2 GB). Voice presets (~4 MB each) are auto-downloaded on first run.
+## Quick Start
 
-### Scenario 1 — Simple Python Script
+### 1) Generate speech and save to WAV
 
-```bash
-cd src/scenario-01-simple
-python main.py
+```csharp
+using ElBruno.VibeVoiceTTS;
+
+using var tts = new VibeVoiceSynthesizer();
+await tts.EnsureModelAvailableAsync(); // auto-downloads ~1.5 GB on first run
+
+float[] audio = await tts.GenerateAudioAsync("Hello! Welcome to VibeVoice Labs.", "Carter");
+tts.SaveWav("output.wav", audio);
 ```
 
-**Output:** `output.wav` containing synthesized speech.
+### 2) Use voice presets
 
-### Scenario 2 — Full-Stack Application
-
-```bash
-cd src/scenario-02-fullstack
-
-# Run with Aspire (starts both backend and frontend)
-cd VoiceLabs.AppHost
-dotnet run
+```csharp
+float[] carter = await tts.GenerateAudioAsync("Hello from Carter!", VibeVoicePreset.Carter);
+float[] emma = await tts.GenerateAudioAsync("Hello from Emma!", VibeVoicePreset.Emma);
 ```
 
-Open the Aspire dashboard to access:
-- **Frontend:** Blazor TTS interface
-- **Backend:** FastAPI at `http://localhost:5100`
+### 3) Track download progress
 
-### Scenario 3 — Simple C# Console App
+```csharp
+var progress = new Progress<DownloadProgress>(p =>
+{
+    if (p.Stage == DownloadStage.Downloading)
+        Console.Write($"\r⬇️ [{p.CurrentFile}] {p.PercentComplete:F0}%");
+    else
+        Console.WriteLine($"{p.Stage}: {p.Message}");
+});
 
-```bash
-cd src/scenario-03-csharp-simple
-dotnet run
+await tts.EnsureModelAvailableAsync(progress);
 ```
 
-Requires ONNX model files — see [Scenario 8](#scenario-8--native-c-onnx-inference) for export instructions.
+### 4) Configure options
 
-### Scenario 4 — Full C# TTS with Aspire
+```csharp
+var options = new VibeVoiceOptions
+{
+    DiffusionSteps = 20,       // Quality vs speed tradeoff
+    CfgScale = 1.5f,           // Classifier-free guidance scale
+    SampleRate = 24000,        // Output sample rate
+};
 
-```bash
-cd src/scenario-04-meai/VoiceLabs.ConversationHost
-dotnet run
+using var tts = new VibeVoiceSynthesizer(options);
 ```
 
-Open the Aspire dashboard → click the frontend endpoint. No Python needed — the C# backend uses `ElBruno.VibeVoice` with ONNX Runtime.
+### 5) Dependency Injection
 
-### Scenario 5 — Batch TTS Processing
+```csharp
+builder.Services.AddVibeVoice(options =>
+{
+    options.DiffusionSteps = 20;
+});
 
-```bash
-cd src/scenario-05-batch-processing
-python batch_tts.py --input-dir ./sample-texts --output-dir ./output --voice carter
+// Then inject IVibeVoiceSynthesizer in your services
 ```
 
-### Scenario 6 — Real-Time Streaming
+> **💡 Tip:** For best results, keep sentences short (~10 words). Longer text may produce artifacts due to model limitations. Consider splitting long text into sentences.
 
-```bash
-cd src/scenario-06-streaming-realtime
-python stream_tts.py
-```
+For the complete API reference and advanced usage, see the [Getting Started Guide](docs/GETTING_STARTED.md).
 
-### Scenario 7 — MAUI Mobile App
+## Scenarios
 
-```bash
-cd src/scenario-07-maui-mobile
-dotnet run -f net10.0-windows  # Or your target platform
-```
+This repository includes example projects demonstrating different ways to use VibeVoice:
 
-### Scenario 8 — Native C# ONNX Inference
+| # | Scenario | Stack | Level | Description |
+|---|----------|-------|-------|-------------|
+| 1 | [Simple Python Script](src/scenario-01-simple/) | Python | Beginner | Minimal TTS demo — useful for model export and testing |
+| 2 | [Full-Stack App](src/scenario-02-fullstack/) | Python + Blazor + Aspire | Intermediate | Web app with FastAPI backend and Blazor frontend |
+| 3 | [**C# Console App**](src/scenario-03-csharp-simple/) | **C# (.NET 8)** | **Beginner** | **Recommended starting point** — pure C# with `ElBruno.VibeVoiceTTS` |
+| 4 | [Full C# with Aspire](src/scenario-04-meai/) | C# + Blazor + Aspire | Intermediate | Full-stack C# app with WebAPI + Blazor frontend |
+| 5 | [Batch Processing](src/scenario-05-batch-processing/) | Python | Intermediate | CLI to convert folders of .txt to .wav |
+| 6 | [Real-Time Streaming](src/scenario-06-streaming-realtime/) | Python | Intermediate | Chunked audio playback for low-latency |
+| 7 | [MAUI Mobile](src/scenario-07-maui-mobile/) | C# (.NET 10 MAUI) | Advanced | Cross-platform app (Windows/macOS/Android/iOS) |
+| 8 | [ONNX Export](src/scenario-08-onnx-native/) | Python → C# | Advanced | ONNX model export tools and pipeline docs |
 
-```bash
-# One-time: export models from Python
-cd src/scenario-08-onnx-native/export
-pip install -r requirements_export.txt
-python export_model.py --output ../models
-python export_voice_presets.py --output ../models/voices
+> **Note:** Python scenarios (1, 2, 5, 6) are primarily for ONNX model export, testing, and reference. The C# scenarios (3, 4, 7) run entirely in .NET with no Python dependency. See the [Scenarios Guide](docs/scenarios.md) for details.
 
-# Run the C# native inference
-cd ../csharp
-dotnet run -- --text "Hello from ONNX!" --voice Carter
-```
+## ONNX Models on HuggingFace
 
-## 📁 Project Structure
+Pre-exported ONNX models are available on HuggingFace — the C# library downloads them automatically:
 
-```
-vibevoice-labs/
-├── README.md                      # You are here
-├── LICENSE                        # MIT License
-├── docs/
-│   ├── ARCHITECTURE.md           # System design & diagrams
-│   ├── GETTING_STARTED.md        # Detailed setup guide
-│   ├── API_REFERENCE.md          # Backend API documentation
-│   └── USER_MANUAL.md            # End-user documentation
-│
-└── src/
-    ├── ElBruno.VibeVoice/                  # Reusable C# TTS library (NuGet)
-    ├── ElBruno.VibeVoice.Tests/            # Unit + integration tests
-    ├── scenario-01-simple/                 # Minimal Python TTS script
-    │   ├── main.py
-    │   ├── requirements.txt
-    │   └── README.md
-    │
-    ├── scenario-02-fullstack/              # Full-stack application
-    │   ├── backend/                        # FastAPI + VibeVoice
-    │   ├── VoiceLabs.AppHost/              # Aspire orchestration
-    │   ├── VoiceLabs.ServiceDefaults/
-    │   ├── VoiceLabs.Web/                  # Blazor frontend
-    │   └── python-api/tests/               # pytest tests
-    │
-    ├── scenario-03-csharp-simple/          # Simple C# console app (ONNX)
-    │   ├── Program.cs
-    │   ├── VoiceLabs.ConsoleApp.csproj
-    │   └── README.md
-    │
-    ├── scenario-04-meai/                   # Full C# TTS with Aspire
-    │   ├── VoiceLabs.Api/                  # C# WebAPI (ElBruno.VibeVoice)
-    │   ├── VoiceLabs.ConversationHost/     # Aspire AppHost
-    │   ├── VoiceLabs.ConversationWeb/      # Blazor frontend
-    │   └── VoiceLabs.slnx
-    │
-    ├── scenario-05-batch-processing/       # Batch TTS CLI
-    │   ├── batch_tts.py
-    │   ├── requirements.txt
-    │   └── README.md
-    │
-    ├── scenario-06-streaming-realtime/     # Real-time streaming
-    │   ├── streaming_tts.py
-    │   ├── requirements.txt
-    │   └── README.md
-    │
-    └── scenario-07-maui-mobile/            # MAUI cross-platform app
-        ├── MauiProgram.cs
-        ├── VoiceLabs.Mobile.csproj
-        ├── Pages/
-        └── README.md
+**🤗 [elbruno/VibeVoice-Realtime-0.5B-ONNX](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX)**
 
-    └── scenario-08-onnx-native/            # Native C# ONNX inference
-        ├── export/                         # Python export tools
-        ├── models/                         # ONNX model files
-        ├── csharp/                         # C# inference pipeline
-        └── README.md
-```
+The model includes 9 ONNX files (autoregressive pipeline with KV-cache) and 6 voice presets. See [Scenario 8](src/scenario-08-onnx-native/) for export details.
 
-## 🔧 Tech Stack
+## Documentation
+
+| Topic | Description |
+|-------|-------------|
+| [Getting Started](docs/GETTING_STARTED.md) | Prerequisites, setup, and first steps |
+| [Scenarios Guide](docs/scenarios.md) | Detailed descriptions of all 8 scenarios |
+| [Architecture](docs/ARCHITECTURE.md) | System design, ONNX pipeline, and data flow |
+| [Project Structure](docs/project-structure.md) | Repository layout and file organization |
+| [API Reference](docs/API_REFERENCE.md) | REST API documentation (for web scenarios) |
+| [User Manual](docs/USER_MANUAL.md) | End-user guide for web interfaces |
+| [Publishing](docs/publishing.md) | NuGet publishing with GitHub Actions |
+
+## Tech Stack
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
-| **TTS Engine** | [VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) | Text-to-speech synthesis |
-| **TTS Package** | [VibeVoice](https://github.com/microsoft/VibeVoice) (installed from Git) | Streaming TTS inference |
-| **Native Inference** | [ONNX Runtime](https://onnxruntime.ai/) | Native C# model inference (no Python) |
-| **C# TTS Library** | [ElBruno.VibeVoice](src/ElBruno.VibeVoice/) | Reusable .NET library with auto-download from 🤗 HuggingFace |
-| **Backend** | [FastAPI](https://fastapi.tiangolo.com/) + [Python](https://python.org) | REST API for TTS |
-| **Frontend** | [Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor) + [.NET 10](https://dotnet.microsoft.com/) | Interactive web UI |
+| **C# TTS Library** | [ElBruno.VibeVoiceTTS](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS) | Reusable .NET library with HuggingFace auto-download |
+| **TTS Model** | [VibeVoice-Realtime-0.5B](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) | Microsoft's text-to-speech model |
+| **Inference** | [ONNX Runtime](https://onnxruntime.ai/) | Native C# model inference |
+| **Frontend** | [Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor) (.NET 10) | Interactive web UI |
 | **Orchestration** | [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/) | Service discovery & health checks |
-| **Audio** | [SoundFile](https://pysoundfile.readthedocs.io/) | WAV file I/O |
 
-## 📚 Documentation
+## Building from Source
 
-- [**Getting Started**](docs/GETTING_STARTED.md) — Detailed setup instructions
-- [**Architecture**](docs/ARCHITECTURE.md) — System design and data flow
-- [**API Reference**](docs/API_REFERENCE.md) — Backend REST API documentation
-- [**User Manual**](docs/USER_MANUAL.md) — End-user guide
+```bash
+git clone https://github.com/elbruno/vibevoice-labs.git
+cd vibevoice-labs
+dotnet build src/ElBruno.VibeVoiceTTS/ElBruno.VibeVoiceTTS.csproj
+dotnet test src/ElBruno.VibeVoiceTTS.Tests/ElBruno.VibeVoiceTTS.Tests.csproj
+```
+
+### Requirements
+
+- .NET 8.0 SDK or later
+- ONNX Runtime compatible platform (Windows, Linux, macOS)
+- Python 3.11+ (only needed for ONNX model export — not for runtime use)
 
 ## 🤝 Contributing
 
@@ -319,20 +160,6 @@ Contributions are welcome! Please:
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-### Development Prerequisites
-
-- .NET 8.0+ SDK
-- Python 3.11+ (only needed for ONNX model export)
-- ONNX Runtime compatible platform (Windows, Linux, macOS)
-
-### Building from Source
-
-```bash
-git clone https://github.com/elbruno/vibevoice-labs.git
-cd vibevoice-labs
-dotnet build src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj
-```
 
 ## 📄 License
 
@@ -346,6 +173,7 @@ Hi! I'm **ElBruno** 🧡, a passionate developer and content creator exploring A
 
 If you like this project, consider following my work across platforms:
 
+- 📻 **Podcast**: [No Tienen Nombre](https://notienenombre.com) — Spanish-language episodes on AI, development, and tech culture
 - 💻 **Blog**: [ElBruno.com](https://elbruno.com) — Deep dives on embeddings, RAG, .NET, and local AI
 - 📺 **YouTube**: [youtube.com/elbruno](https://www.youtube.com/elbruno) — Demos, tutorials, and live coding
 - 🔗 **LinkedIn**: [@elbruno](https://www.linkedin.com/in/elbruno/) — Professional updates and insights

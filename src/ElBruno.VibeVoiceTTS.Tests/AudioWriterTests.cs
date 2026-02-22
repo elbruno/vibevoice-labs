@@ -1,7 +1,7 @@
-using ElBruno.VibeVoice;
-using ElBruno.VibeVoice.Utils;
+using ElBruno.VibeVoiceTTS;
+using ElBruno.VibeVoiceTTS.Utils;
 
-namespace ElBruno.VibeVoice.Tests;
+namespace ElBruno.VibeVoiceTTS.Tests;
 
 public class AudioWriterTests
 {

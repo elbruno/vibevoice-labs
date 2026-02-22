@@ -1,7 +1,7 @@
-using ElBruno.VibeVoice.Utils;
+using ElBruno.VibeVoiceTTS.Utils;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
-namespace ElBruno.VibeVoice.Tests;
+namespace ElBruno.VibeVoiceTTS.Tests;
 
 public class TensorHelpersTests
 {

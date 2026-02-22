@@ -1,6 +1,6 @@
 # Scenario 8 — ONNX Export & Native C# Inference Pipeline
 
-Export VibeVoice-Realtime-0.5B to ONNX for **native C# inference** via the [ElBruno.VibeVoice](../../src/ElBruno.VibeVoice/) NuGet library. Zero Python dependency at runtime.
+Export VibeVoice-Realtime-0.5B to ONNX for **native C# inference** via the [ElBruno.VibeVoiceTTS](../../src/ElBruno.VibeVoiceTTS/) NuGet library. Zero Python dependency at runtime.
 
 ## Architecture
 
@@ -112,14 +112,14 @@ git lfs install
 git clone https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX models
 ```
 
-The C# library (`ElBruno.VibeVoice`) auto-downloads models from HuggingFace on first use — no manual download needed for most users.
+The C# library (`ElBruno.VibeVoiceTTS`) auto-downloads models from HuggingFace on first use — no manual download needed for most users.
 
 ## Using in C#
 
 See [scenario-03-csharp-simple](../scenario-03-csharp-simple/) for a complete example:
 
 ```csharp
-using ElBruno.VibeVoice;
+using ElBruno.VibeVoiceTTS;
 
 using var tts = new VibeVoiceSynthesizer();
 await tts.EnsureModelAvailableAsync(); // auto-downloads from HuggingFace

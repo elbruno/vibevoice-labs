@@ -1,6 +1,6 @@
-using ElBruno.VibeVoice.Pipeline;
+using ElBruno.VibeVoiceTTS.Pipeline;
 
-namespace ElBruno.VibeVoice;
+namespace ElBruno.VibeVoiceTTS;
 
 /// <summary>
 /// VibeVoice text-to-speech synthesizer using ONNX Runtime.

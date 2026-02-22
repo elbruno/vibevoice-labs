@@ -1,4 +1,4 @@
-namespace ElBruno.VibeVoice;
+namespace ElBruno.VibeVoiceTTS;
 
 /// <summary>
 /// Interface for VibeVoice text-to-speech synthesis.

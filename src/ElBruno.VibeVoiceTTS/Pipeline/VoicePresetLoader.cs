@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
 
-namespace ElBruno.VibeVoice.Pipeline;
+namespace ElBruno.VibeVoiceTTS.Pipeline;
 
 /// <summary>
 /// Loads voice conditioning tensors from .npy files.

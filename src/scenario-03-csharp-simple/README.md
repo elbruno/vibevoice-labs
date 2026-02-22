@@ -1,11 +1,11 @@
-# Scenario 3 — C# Console Simple Demo (ElBruno.VibeVoice)
+# Scenario 3 — C# Console Simple Demo (ElBruno.VibeVoiceTTS)
 
-A simple C# console app that runs VibeVoice TTS using the **ElBruno.VibeVoice** library — pure native C# with automatic model download from HuggingFace.
+A simple C# console app that runs VibeVoice TTS using the **ElBruno.VibeVoiceTTS** library — pure native C# with automatic model download from HuggingFace.
 
 ## How It Works
 
 ```
-C# Program.cs  →  ElBruno.VibeVoice  →  ONNX Runtime  →  output.wav
+C# Program.cs  →  ElBruno.VibeVoiceTTS  →  ONNX Runtime  →  output.wav
 (.NET host)        (library)              (native C#)
 ```
 
@@ -32,7 +32,7 @@ The app will:
 ## Code Example
 
 ```csharp
-using ElBruno.VibeVoice;
+using ElBruno.VibeVoiceTTS;
 
 using var tts = new VibeVoiceSynthesizer();
 await tts.EnsureModelAvailableAsync();
@@ -65,9 +65,9 @@ var voice = VibeVoicePreset.Grace;   // Female
 
 | File | Purpose |
 |---|---|
-| `Program.cs` | C# demo — uses ElBruno.VibeVoice library |
-| `VoiceLabs.Console.csproj` | .NET 8.0 project with ElBruno.VibeVoice reference |
+| `Program.cs` | C# demo — uses ElBruno.VibeVoiceTTS library |
+| `VoiceLabs.Console.csproj` | .NET 8.0 project with ElBruno.VibeVoiceTTS reference |
 
 ## Library
 
-This scenario uses the [`ElBruno.VibeVoice`](../ElBruno.VibeVoice/) library. For the advanced scenario with CLI args, see [`scenario-08-onnx-native/csharp/`](../scenario-08-onnx-native/csharp/).
+This scenario uses the [`ElBruno.VibeVoiceTTS`](../ElBruno.VibeVoiceTTS/) library. For the advanced scenario with CLI args, see [`scenario-08-onnx-native/csharp/`](../scenario-08-onnx-native/csharp/).

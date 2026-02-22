@@ -1,12 +1,12 @@
 # Publishing a New Version to NuGet
 
-This guide covers how to publish new versions of **ElBruno.VibeVoice** to NuGet.org using GitHub Actions and NuGet Trusted Publishing (keyless, OIDC-based).
+This guide covers how to publish new versions of **ElBruno.VibeVoiceTTS** to NuGet.org using GitHub Actions and NuGet Trusted Publishing (keyless, OIDC-based).
 
 ## Package
 
 | Package | Project | Description |
 |---------|---------|-------------|
-| `ElBruno.VibeVoice` | `src/ElBruno.VibeVoice/` | .NET library for VibeVoice text-to-speech using ONNX Runtime |
+| `ElBruno.VibeVoiceTTS` | `src/ElBruno.VibeVoiceTTS/` | .NET library for VibeVoice text-to-speech using ONNX Runtime |
 
 > **Maintenance rule:** If a new packable library is added under `src/`, update `.github/workflows/publish.yml` in the same PR so the new project is packed/pushed, and add a matching NuGet Trusted Publishing policy.
 
@@ -47,7 +47,7 @@ This is the standard workflow — the version is derived from the release tag.
 
 1. **Update the version** in the csproj file:
 
-   - `src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj`
+   - `src/ElBruno.VibeVoiceTTS/ElBruno.VibeVoiceTTS.csproj`
 
    ```xml
    <Version>0.2.0</Version>
@@ -79,7 +79,7 @@ The workflow (`.github/workflows/publish.yml`) uses **NuGet Trusted Publishing**
 ```
 GitHub Release created (e.g. v0.2.0)
   → GitHub Actions triggers publish.yml
-    → Builds the ElBruno.VibeVoice project
+    → Builds the ElBruno.VibeVoiceTTS project
     → Packs one .nupkg file
     → Requests an OIDC token from GitHub
     → Exchanges the token with NuGet.org for a temporary API key (valid 1 hour)
@@ -93,7 +93,7 @@ The workflow determines the package version in this order:
 
 1. **Release tag** — if triggered by a GitHub Release (strips leading `v`)
 2. **Manual input** — if triggered via workflow dispatch with a version specified
-3. **csproj fallback** — reads `<Version>` from `src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj`
+3. **csproj fallback** — reads `<Version>` from `src/ElBruno.VibeVoiceTTS/ElBruno.VibeVoiceTTS.csproj`
 
 ## Troubleshooting
 
@@ -111,5 +111,5 @@ The workflow determines the package version in this order:
 - [OpenID Connect (OIDC) in GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect) — How GitHub Actions OIDC tokens work
 - [GitHub Actions: Creating and Using Environments](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment) — How to configure the `release` environment with approval gates
 - [NuGet Package Versioning](https://learn.microsoft.com/en-us/nuget/concepts/package-versioning) — Best practices for SemVer versioning
-- [ElBruno.VibeVoice on NuGet.org](https://www.nuget.org/packages/ElBruno.VibeVoice) — The published package page (available after first publish)
+- [ElBruno.VibeVoiceTTS on NuGet.org](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS) — The published package page (available after first publish)
 - [VibeVoice ONNX Models on HuggingFace](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX) — ONNX model files used by this library

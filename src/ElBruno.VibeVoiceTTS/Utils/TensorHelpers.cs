@@ -1,7 +1,7 @@
 using System.Numerics;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
-namespace ElBruno.VibeVoice.Utils;
+namespace ElBruno.VibeVoiceTTS.Utils;
 
 /// <summary>
 /// Tensor creation and numerical operations for ONNX Runtime.

@@ -1,4 +1,4 @@
-namespace ElBruno.VibeVoice.Utils;
+namespace ElBruno.VibeVoiceTTS.Utils;
 
 /// <summary>
 /// Writes audio samples to WAV files (RIFF format, 16-bit PCM).
