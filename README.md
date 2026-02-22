@@ -66,13 +66,25 @@ await tts.EnsureModelAvailableAsync(progress);
 ```csharp
 var options = new VibeVoiceOptions
 {
-    DiffusionSteps = 20,       // Quality vs speed tradeoff
-    CfgScale = 1.5f,           // Classifier-free guidance scale
-    SampleRate = 24000,        // Output sample rate
+    ModelPath = @"D:\models\vibevoice",  // Custom model location (default: OS cache)
+    DiffusionSteps = 20,                 // Quality vs speed tradeoff
+    CfgScale = 1.5f,                     // Classifier-free guidance scale
+    SampleRate = 24000,                  // Output sample rate
 };
 
 using var tts = new VibeVoiceSynthesizer(options);
 ```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `ModelPath` | OS cache* | Directory where ONNX models are stored and downloaded |
+| `HuggingFaceRepo` | `elbruno/VibeVoice-Realtime-0.5B-ONNX` | HuggingFace repo for model downloads |
+| `DiffusionSteps` | `20` | Number of diffusion denoising steps |
+| `CfgScale` | `1.5` | Classifier-free guidance scale |
+| `SampleRate` | `24000` | Output audio sample rate (Hz) |
+| `Seed` | `42` | Random seed for reproducible output |
+
+*\*Default model cache: Windows: `%LOCALAPPDATA%\ElBruno\VibeVoice\models` · Linux/macOS: `~/.local/share/elbruno/vibevoice/models`*
 
 ### 5) Dependency Injection
 
