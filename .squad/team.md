@@ -18,6 +18,7 @@
 | Naomi | Backend Dev | .ai-team/agents/naomi/charter.md | ✅ Active |
 | Alex | Frontend Dev | .ai-team/agents/alex/charter.md | ✅ Active |
 | Amos | Tester | .ai-team/agents/amos/charter.md | ✅ Active |
+| Drummer | GitHub Issues Manager | .squad/agents/drummer/charter.md | ✅ Active |
 | Scribe | Session Logger | .ai-team/agents/scribe/charter.md | 📋 Scribe |
 | Ralph | Work Monitor | — | 🔄 Monitor |
 
