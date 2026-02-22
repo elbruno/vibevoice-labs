@@ -1,12 +1,14 @@
 # 🎙️ VibeVoice Labs
 
-> Showcase project demonstrating Microsoft's VibeVoice TTS with Python + Blazor + .NET Aspire
+> Showcase project demonstrating Microsoft's VibeVoice TTS with native C# inference via ONNX Runtime
 
-[![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Aspire](https://img.shields.io/badge/Aspire-9.2-purple)](https://learn.microsoft.com/en-us/dotnet/aspire/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![HuggingFace](https://img.shields.io/badge/🤗_HuggingFace-ONNX_Models-orange)](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX)
+[![NuGet](https://img.shields.io/nuget/v/ElBruno.VibeVoice.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoice)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.VibeVoice.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.VibeVoice)
+[![Build Status](https://github.com/elbruno/vibevoice-labs/actions/workflows/publish.yml/badge.svg)](https://github.com/elbruno/vibevoice-labs/actions/workflows/publish.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![HuggingFace](https://img.shields.io/badge/🤗_HuggingFace-ONNX_Models-orange?style=flat-square)](https://huggingface.co/elbruno/VibeVoice-Realtime-0.5B-ONNX)
+[![GitHub stars](https://img.shields.io/github/stars/elbruno/vibevoice-labs?style=social)](https://github.com/elbruno/vibevoice-labs)
+[![Twitter Follow](https://img.shields.io/twitter/follow/elbruno?style=social)](https://twitter.com/elbruno)
 
 <!-- 
 ![VoiceLabs Demo](docs/images/demo.gif)
@@ -15,12 +17,16 @@
 ## ✨ Features
 
 - 🔊 **Natural Text-to-Speech** powered by VibeVoice-Realtime-0.5B (~200ms latency)
+- 📦 **NuGet Library** — [`ElBruno.VibeVoice`](https://www.nuget.org/packages/ElBruno.VibeVoice) for native C# TTS with auto-download from HuggingFace
+- 🤖 **Pure C# Inference** — ONNX Runtime, zero Python dependency at runtime
 - 🌍 **6 English Voice Presets** (Carter, Davis, Emma, Frank, Grace, Mike) + multilingual experimental voices
 - 🎨 **Modern Blazor UI** with glassmorphism design
 - 🚀 **.NET Aspire Orchestration** for seamless service discovery
 - 📥 **Audio Download** as WAV files
 
 ## 📦 Scenarios
+
+> **Note:** Python is used in some scenarios only for **ONNX model export** and **model downloading** from HuggingFace. The C# scenarios (3, 4, 7, 8) run entirely in .NET with no Python dependency at runtime.
 
 This project includes eight ways to explore VibeVoice across Python and .NET:
 
@@ -56,15 +62,15 @@ src/scenario-03-csharp-simple/
 └── README.md               # Quick start guide
 ```
 
-### Scenario 4: Real-Time Voice Conversation
-A full-stack real-time voice conversation app. Speak into your mic, AI responds with voice — all orchestrated by Aspire. Uses Parakeet (STT) + OpenAI (AI brain) + VibeVoice (TTS). **Advanced level.**
+### Scenario 4: Full C# TTS with Aspire
+A full-stack C# application with WebAPI backend using `ElBruno.VibeVoice`, Blazor frontend, and Aspire orchestration. **Zero Python dependency at runtime.** **Intermediate level.**
 
 ```
 src/scenario-04-meai/
-├── VoiceLabs.ConversationHost/       # Aspire AppHost
-├── backend/                          # Python FastAPI (STT + TTS + AI)
-├── VoiceLabs.ConversationWeb/        # Blazor frontend (mic + audio)
+├── VoiceLabs.Api/                    # C# WebAPI (ElBruno.VibeVoice)
+├── VoiceLabs.ConversationHost/       # Aspire orchestration
 ├── VoiceLabs.ServiceDefaults/
+├── VoiceLabs.ConversationWeb/        # Blazor frontend
 └── VoiceLabs.slnx                    # Solution file
 ```
 
@@ -179,23 +185,14 @@ dotnet run
 
 Requires ONNX model files — see [Scenario 8](#scenario-8--native-c-onnx-inference) for export instructions.
 
-### Scenario 4 — Real-Time Voice Conversation
+### Scenario 4 — Full C# TTS with Aspire
 
 ```bash
-cd src/scenario-04-meai
-
-# Install Python dependencies
-cd backend && pip install -r requirements.txt && cd ..
-
-# Set OpenAI API key
-$env:OPENAI_API_KEY = "sk-..."
-
-# Run with Aspire
-cd VoiceLabs.ConversationHost
+cd src/scenario-04-meai/VoiceLabs.ConversationHost
 dotnet run
 ```
 
-Open the Aspire dashboard → click the frontend endpoint → push-to-talk to start a conversation!
+Open the Aspire dashboard → click the frontend endpoint. No Python needed — the C# backend uses `ElBruno.VibeVoice` with ONNX Runtime.
 
 ### Scenario 5 — Batch TTS Processing
 
@@ -321,18 +318,33 @@ Contributions are welcome! Please:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+### Development Prerequisites
+
+- .NET 8.0+ SDK
+- Python 3.11+ (only needed for ONNX model export)
+- ONNX Runtime compatible platform (Windows, Linux, macOS)
+
+### Building from Source
+
+```bash
+git clone https://github.com/elbruno/vibevoice-labs.git
+cd vibevoice-labs
+dotnet build src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj
+```
+
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Credits
+## 👋 About the Author
 
-- **[VibeVoice](https://github.com/microsoft/VibeVoice)** — Text-to-speech model by Microsoft
-- **[.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/)** — Cloud-native orchestration by Microsoft
-- **Bruno Capuano** — Project creator
+Hi! I'm **ElBruno** 🧡, a passionate developer and content creator exploring AI, .NET, and modern development practices.
 
----
+**Made with ❤️ by [ElBruno](https://github.com/elbruno)**
 
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/elbruno">Bruno Capuano</a>
-</p>
+If you like this project, consider following my work across platforms:
+
+- 💻 **Blog**: [ElBruno.com](https://elbruno.com) — Deep dives on embeddings, RAG, .NET, and local AI
+- 📺 **YouTube**: [youtube.com/elbruno](https://www.youtube.com/elbruno) — Demos, tutorials, and live coding
+- 🔗 **LinkedIn**: [@elbruno](https://www.linkedin.com/in/elbruno/) — Professional updates and insights
+- 𝕏 **Twitter**: [@elbruno](https://www.x.com/in/elbruno/) — Quick tips, releases, and tech news

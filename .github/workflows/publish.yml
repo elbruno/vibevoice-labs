@@ -6,25 +6,26 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Package version (leave empty to use csproj version)'
+        description: "Package version (leave empty to use csproj version)"
         required: false
         type: string
-
-permissions:
-  contents: read
-  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     environment: release
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: "8.0.x"
 
       - name: Determine version
         id: version
@@ -47,18 +48,19 @@ jobs:
         run: dotnet build src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj -c Release --no-restore -p:Version=${{ steps.version.outputs.version }}
 
       - name: Pack
-        run: dotnet pack src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj -c Release --no-build -o ./nupkgs -p:Version=${{ steps.version.outputs.version }}
+        run: dotnet pack src/ElBruno.VibeVoice/ElBruno.VibeVoice.csproj -c Release --no-build -o artifacts -p:Version=${{ steps.version.outputs.version }}
 
-      - name: NuGet login (Trusted Publishing)
-        uses: nuget/login@v1
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
         with:
-          nuget-server: https://api.nuget.org/v3/index.json
+          user: ${{ secrets.NUGET_USER }}
 
       - name: Push to NuGet.org
-        run: dotnet nuget push ./nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Upload nupkg artifact
         uses: actions/upload-artifact@v4
         with:
           name: nupkg-${{ steps.version.outputs.version }}
-          path: ./nupkgs/*.nupkg
+          path: artifacts/*.nupkg

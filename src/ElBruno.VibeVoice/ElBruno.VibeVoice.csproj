@@ -17,6 +17,7 @@
     <RepositoryUrl>https://github.com/elbruno/vibevoice-labs</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>nuget_01.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +27,7 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" Condition="Exists('..\..\README.md')" />
+    <None Include="..\..\images\nuget_01.png" Pack="true" PackagePath="\" Link="nuget_01.png" />
   </ItemGroup>
 
 </Project>
