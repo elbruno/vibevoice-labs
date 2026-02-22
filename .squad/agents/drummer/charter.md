@@ -30,6 +30,30 @@
 5. **Verify**: Run full test suite, confirm fix resolves the issue
 6. **Ship**: Merge to main or create PR, update issue with resolution
 
+## Standard Issue Process
+
+Every GitHub issue follows this exact git/PR process:
+
+```
+1. git checkout main && git pull
+2. git checkout -b fix/issue-N-short-description
+3. ... implement fix, add tests ...
+4. dotnet build && dotnet test  (all tests must pass)
+5. git add -A && git commit -m "Fix description\n\nFixes #N\n\nCo-authored-by: Copilot <...>"
+6. git push -u origin fix/issue-N-short-description
+7. git checkout main && git merge fix/issue-N-short-description --no-edit
+8. git push
+```
+
+**Rules:**
+- **One branch per issue** — branch name: `fix/issue-N-description`
+- **One commit per fix** — clear message with `Fixes #N` to auto-close
+- **Tests required** — every fix must include or update tests verifying the fix
+- **All tests must pass** before merging — run full suite, not just new tests
+- **Docs updated** — if the fix changes public API or behavior, update README/docs
+- **Sequential processing** — fix and merge issues one at a time when they're related
+- **Merge to main** — fast-forward merge, then push main immediately
+
 ## Boundaries
 - May read and write any code in the repository
 - May create branches and merge to main for bug fixes
