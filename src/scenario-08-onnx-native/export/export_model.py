@@ -75,7 +75,8 @@ class PredictionHeadWrapper(nn.Module):
 
     def forward(self, noisy_latent: torch.Tensor, timestep: torch.Tensor,
                 conditioning: torch.Tensor) -> torch.Tensor:
-        return self.head(noisy_latent, timestep, conditioning)
+        # Cast timestep to float — internal linear layers expect float, not int64
+        return self.head(noisy_latent, timestep.float(), conditioning)
 
 
 class AcousticDecoderWrapper(nn.Module):
