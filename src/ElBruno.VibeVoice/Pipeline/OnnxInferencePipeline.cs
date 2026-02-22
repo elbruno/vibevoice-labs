@@ -19,9 +19,9 @@ internal sealed class OnnxInferencePipeline : IDisposable
     public float CfgScale { get; set; } = 1.5f;
     public int Seed { get; set; } = 42;
 
-    // Matches model_config.json: latent_size=64, speech_vae_dim=64
+    // Matches model_config.json: latent_size=64, hidden_size=896
     private const int LatentDim = 64;
-    private const int LatentLength = 50;
+    private const int HiddenSize = 896;
 
     public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 20, float cfgScale = 1.5f, int seed = 42)
     {
@@ -46,13 +46,19 @@ internal sealed class OnnxInferencePipeline : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
-        ArgumentException.ThrowIfNullOrWhiteSpace(voice);
 
         int[] tokenIds = _tokenizer.Encode(text);
+        int seqLen = tokenIds.Length;
+
+        // 1. Text encoder: tokens → hidden states [1, seqLen, 896]
         float[] hiddenStates = RunTextEncoder(tokenIds);
-        float[] voiceConditioning = GetVoiceConditioning(voice);
-        float[] latents = RunDiffusionLoop(hiddenStates, voiceConditioning);
-        float[] audio = RunAcousticDecoder(latents);
+
+        // 2. Diffusion loop: denoise latents conditioned on hidden states
+        //    noisy_latent [1, 64] → predicted [1, seqLen, 64] per step
+        float[] latents = RunDiffusionLoop(hiddenStates, seqLen);
+
+        // 3. Acoustic decoder: latents [1, 64, seqLen] → waveform
+        float[] audio = RunAcousticDecoder(latents, seqLen);
         return audio;
     }
 
@@ -79,71 +85,57 @@ internal sealed class OnnxInferencePipeline : IDisposable
         return outputTensor.ToArray();
     }
 
-    private float[] GetVoiceConditioning(string voice)
-    {
-        try
-        {
-            var presets = _voicePresets.GetVoicePreset(voice);
-
-            if (presets.TryGetValue("speaker_embedding", out var embedding))
-                return embedding;
-            if (presets.TryGetValue("voice_conditioning", out var conditioning))
-                return conditioning;
-            if (presets.Count > 0)
-                return presets.Values.First();
-        }
-        catch (FileNotFoundException)
-        {
-            // Fall back to default conditioning
-        }
-
-        return new float[256];
-    }
-
-    private float[] RunDiffusionLoop(float[] hiddenStates, float[] voiceConditioning)
+    private float[] RunDiffusionLoop(float[] hiddenStates, int seqLen)
     {
         var scheduler = new DiffusionScheduler(DiffusionSteps);
         int[] timesteps = scheduler.GetTimesteps();
 
-        int[] latentShape = [1, LatentDim, LatentLength];
-        float[] latents = Utils.TensorHelpers.Randn(latentShape, Seed >= 0 ? Seed : Random.Shared.Next());
+        // Latents: [1, LatentDim] — a single latent vector that gets denoised
+        float[] latents = Utils.TensorHelpers.Randn([1, LatentDim], Seed >= 0 ? Seed : Random.Shared.Next());
 
         for (int i = 0; i < timesteps.Length; i++)
         {
-            float[] noisePrediction = RunDiffusionStep(latents, hiddenStates, voiceConditioning, timesteps[i]);
+            float[] noisePrediction = RunDiffusionStep(latents, hiddenStates, seqLen, timesteps[i]);
 
-            if (CfgScale > 1.0f)
+            // Flatten prediction to match latent size for scheduler step
+            // prediction_head output is [1, seqLen, 64] but we denoise [1, 64]
+            // Take the mean across the sequence dimension
+            float[] meanPrediction = new float[LatentDim];
+            for (int d = 0; d < LatentDim; d++)
             {
-                float[] unconditionalPrediction = RunDiffusionStep(
-                    latents, hiddenStates, new float[voiceConditioning.Length], timesteps[i]);
-
-                for (int j = 0; j < noisePrediction.Length; j++)
-                {
-                    noisePrediction[j] = unconditionalPrediction[j]
-                        + CfgScale * (noisePrediction[j] - unconditionalPrediction[j]);
-                }
+                float sum = 0;
+                for (int s = 0; s < seqLen; s++)
+                    sum += noisePrediction[s * LatentDim + d];
+                meanPrediction[d] = sum / seqLen;
             }
 
-            latents = scheduler.Step(noisePrediction, timesteps[i], latents);
+            latents = scheduler.Step(meanPrediction, timesteps[i], latents);
         }
 
-        return latents;
+        // Expand final latent [LatentDim] to [seqLen, LatentDim] then transpose to [LatentDim, seqLen]
+        // for acoustic decoder input [1, 64, time]
+        float[] expandedLatents = new float[LatentDim * seqLen];
+        for (int d = 0; d < LatentDim; d++)
+            for (int s = 0; s < seqLen; s++)
+                expandedLatents[d * seqLen + s] = latents[d];
+
+        return expandedLatents;
     }
 
-    private float[] RunDiffusionStep(float[] latents, float[] hiddenStates, float[] voiceConditioning, int timestep)
+    private float[] RunDiffusionStep(float[] latents, float[] hiddenStates, int seqLen, int timestep)
     {
-        var latentTensor = Utils.TensorHelpers.CreateTensor(latents, [1, LatentDim, LatentLength]);
-        var hiddenTensor = Utils.TensorHelpers.CreateTensor(hiddenStates,
-            [1, hiddenStates.Length / LatentDim, LatentDim]);
-        var condTensor = Utils.TensorHelpers.CreateTensor(voiceConditioning, [1, voiceConditioning.Length]);
+        // noisy_latent: [1, 64]
+        var latentTensor = Utils.TensorHelpers.CreateTensor(latents, [1, LatentDim]);
+        // conditioning: [1, seqLen, 896]
+        var condTensor = Utils.TensorHelpers.CreateTensor(hiddenStates, [1, seqLen, HiddenSize]);
+        // timestep: [1]
         var timestepTensor = Utils.TensorHelpers.CreateTensor(new long[] { timestep }, [1]);
 
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("latent_sample", latentTensor),
-            NamedOnnxValue.CreateFromTensor("encoder_hidden_states", hiddenTensor),
-            NamedOnnxValue.CreateFromTensor("voice_conditioning", condTensor),
-            NamedOnnxValue.CreateFromTensor("timestep", timestepTensor)
+            NamedOnnxValue.CreateFromTensor("noisy_latent", latentTensor),
+            NamedOnnxValue.CreateFromTensor("timestep", timestepTensor),
+            NamedOnnxValue.CreateFromTensor("conditioning", condTensor)
         };
 
         using var results = _diffusionStep.Run(inputs);
@@ -151,13 +143,14 @@ internal sealed class OnnxInferencePipeline : IDisposable
         return outputTensor.ToArray();
     }
 
-    private float[] RunAcousticDecoder(float[] latents)
+    private float[] RunAcousticDecoder(float[] latents, int seqLen)
     {
-        var latentTensor = Utils.TensorHelpers.CreateTensor(latents, [1, LatentDim, LatentLength]);
+        // latent: [1, 64, time]
+        var latentTensor = Utils.TensorHelpers.CreateTensor(latents, [1, LatentDim, seqLen]);
 
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("latent_input", latentTensor)
+            NamedOnnxValue.CreateFromTensor("latent", latentTensor)
         };
 
         using var results = _acousticDecoder.Run(inputs);
