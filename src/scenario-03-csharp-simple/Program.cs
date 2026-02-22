@@ -14,6 +14,10 @@ var options = new VibeVoiceOptions();
 // To use a custom model path instead of the default cache:
 // options.ModelPath = @"C:\path\to\models";
 
+// To enable GPU acceleration (requires Microsoft.ML.OnnxRuntime.DirectML NuGet):
+// options.ExecutionProvider = ExecutionProvider.DirectML;
+// options.GpuDeviceId = 0;
+
 using var tts = new VibeVoiceSynthesizer(options);
 
 Console.WriteLine($"📦 Model path: {tts.ModelPath}");

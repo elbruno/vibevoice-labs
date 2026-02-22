@@ -15,6 +15,7 @@ A .NET library for text-to-speech synthesis using Microsoft's [VibeVoice-Realtim
 - 🔊 **Natural Text-to-Speech** — High-quality speech synthesis powered by VibeVoice-Realtime-0.5B
 - 📦 **NuGet Package** — [`ElBruno.VibeVoiceTTS`](https://www.nuget.org/packages/ElBruno.VibeVoiceTTS) — install and start generating speech in minutes
 - 🤖 **Pure C# Inference** — ONNX Runtime, zero Python dependency at runtime
+- 🚀 **GPU Acceleration** — DirectML (any Windows GPU) and CUDA (NVIDIA) support with automatic CPU fallback
 - 📥 **Auto-Download** — Models automatically downloaded from 🤗 HuggingFace on first use
 - 🌍 **6 Voice Presets** — Carter, Davis, Emma, Frank, Grace, Mike (English voices with multilingual experimental support)
 - 💉 **Dependency Injection** — First-class `IServiceCollection` integration
@@ -83,10 +84,44 @@ using var tts = new VibeVoiceSynthesizer(options);
 | `CfgScale` | `1.5` | Classifier-free guidance scale |
 | `SampleRate` | `24000` | Output audio sample rate (Hz) |
 | `Seed` | `42` | Random seed for reproducible output |
+| `ExecutionProvider` | `Cpu` | ONNX Runtime execution provider (`Cpu`, `DirectML`, `Cuda`) |
+| `GpuDeviceId` | `0` | GPU device index (used with DirectML or CUDA) |
 
 *\*Default model cache: Windows: `%LOCALAPPDATA%\ElBruno\VibeVoice\models` · Linux/macOS: `~/.local/share/elbruno/vibevoice/models`*
 
-### 5) Dependency Injection
+### 5) GPU Acceleration
+
+Enable GPU acceleration by setting the execution provider and installing the corresponding NuGet package:
+
+```bash
+# For DirectML (any Windows GPU — NVIDIA, AMD, Intel):
+dotnet add package Microsoft.ML.OnnxRuntime.DirectML
+
+# For CUDA (NVIDIA only — Windows and Linux):
+dotnet add package Microsoft.ML.OnnxRuntime.Gpu
+```
+
+```csharp
+// DirectML — recommended for Windows desktop apps
+var options = new VibeVoiceOptions
+{
+    ExecutionProvider = ExecutionProvider.DirectML,
+    GpuDeviceId = 0   // optional, selects which GPU
+};
+using var tts = new VibeVoiceSynthesizer(options);
+
+// CUDA — for NVIDIA GPUs with CUDA drivers
+var options = new VibeVoiceOptions
+{
+    ExecutionProvider = ExecutionProvider.Cuda,
+    GpuDeviceId = 0
+};
+using var tts = new VibeVoiceSynthesizer(options);
+```
+
+> **💡 Note:** If the selected GPU provider is unavailable (missing NuGet package or no compatible GPU), the library automatically falls back to CPU inference.
+
+### 6) Dependency Injection
 
 ```csharp
 builder.Services.AddVibeVoice(options =>

@@ -118,7 +118,9 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
                 ModelPath,
                 _options.DiffusionSteps,
                 _options.CfgScale,
-                _options.Seed);
+                _options.Seed,
+                _options.ExecutionProvider,
+                _options.GpuDeviceId);
 
             return _pipeline;
         }
