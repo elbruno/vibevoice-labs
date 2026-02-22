@@ -87,6 +87,21 @@ builder.Services.AddVibeVoice(options =>
 
 > **💡 Tip:** For best results, keep sentences short (~10 words). Longer text may produce artifacts due to model limitations. Consider splitting long text into sentences.
 
+## 🗣️ Voices & Languages
+
+| Voice | Gender | Preset Enum |
+|-------|--------|-------------|
+| Carter | Male | `VibeVoicePreset.Carter` |
+| Davis | Male | `VibeVoicePreset.Davis` |
+| Emma | Female | `VibeVoicePreset.Emma` |
+| Frank | Male | `VibeVoicePreset.Frank` |
+| Grace | Female | `VibeVoicePreset.Grace` |
+| Mike | Male | `VibeVoicePreset.Mike` |
+
+**Language support:** The model is primarily trained on **English**, with experimental multilingual capabilities (e.g., Spanish, French, German). Results may vary for non-English text.
+
+📖 For full details on the model, supported languages, and voice characteristics, see the official [VibeVoice documentation on HuggingFace](https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B) and the [VibeVoice GitHub repository](https://github.com/microsoft/VibeVoice).
+
 For the complete API reference and advanced usage, see the [Getting Started Guide](docs/GETTING_STARTED.md).
 
 ## Scenarios
