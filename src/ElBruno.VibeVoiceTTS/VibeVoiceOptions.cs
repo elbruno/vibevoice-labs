@@ -10,25 +10,66 @@ public sealed class VibeVoiceOptions
     /// </summary>
     public string? ModelPath { get; set; }
 
-    /// <summary>
-    /// HuggingFace repository to download models from.
-    /// </summary>
-    public string HuggingFaceRepo { get; set; } = "elbruno/VibeVoice-Realtime-0.5B-ONNX";
+    private string _huggingFaceRepo = "elbruno/VibeVoice-Realtime-0.5B-ONNX";
 
     /// <summary>
-    /// Number of DDPM diffusion steps (default: 20, matching model config).
+    /// HuggingFace repository to download models from. Must be in "owner/repo" format.
     /// </summary>
-    public int DiffusionSteps { get; set; } = 20;
+    public string HuggingFaceRepo
+    {
+        get => _huggingFaceRepo;
+        set
+        {
+            ValidateHuggingFaceRepo(value);
+            _huggingFaceRepo = value;
+        }
+    }
+
+    private int _diffusionSteps = 20;
 
     /// <summary>
-    /// Classifier-free guidance scale (default: 1.5, matching model config).
+    /// Number of DDPM diffusion steps (default: 20). Must be greater than 0.
     /// </summary>
-    public float CfgScale { get; set; } = 1.5f;
+    public int DiffusionSteps
+    {
+        get => _diffusionSteps;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, 0, nameof(DiffusionSteps));
+            _diffusionSteps = value;
+        }
+    }
+
+    private float _cfgScale = 1.5f;
 
     /// <summary>
-    /// Audio sample rate in Hz (default: 24000).
+    /// Classifier-free guidance scale (default: 1.5). Must be greater than 0.
     /// </summary>
-    public int SampleRate { get; set; } = 24000;
+    public float CfgScale
+    {
+        get => _cfgScale;
+        set
+        {
+            if (value <= 0f || float.IsNaN(value) || float.IsInfinity(value))
+                throw new ArgumentOutOfRangeException(nameof(CfgScale), value, "CfgScale must be a positive finite number.");
+            _cfgScale = value;
+        }
+    }
+
+    private int _sampleRate = 24000;
+
+    /// <summary>
+    /// Audio sample rate in Hz (default: 24000). Must be greater than 0.
+    /// </summary>
+    public int SampleRate
+    {
+        get => _sampleRate;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, 0, nameof(SampleRate));
+            _sampleRate = value;
+        }
+    }
 
     /// <summary>
     /// Random seed for reproducible diffusion noise (default: 42).
@@ -64,5 +105,17 @@ public sealed class VibeVoiceOptions
                           ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share");
             return Path.Combine(xdgData, "elbruno", "vibevoice", "models");
         }
+    }
+
+    /// <summary>
+    /// Validates that a HuggingFace repository string is in safe "owner/repo" format.
+    /// </summary>
+    internal static void ValidateHuggingFaceRepo(string repo)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repo, nameof(repo));
+        if (!System.Text.RegularExpressions.Regex.IsMatch(repo, @"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"))
+            throw new ArgumentException(
+                $"Invalid HuggingFace repo format: '{repo}'. Expected 'owner/repo-name' (alphanumeric, dots, hyphens, underscores only).",
+                nameof(repo));
     }
 }

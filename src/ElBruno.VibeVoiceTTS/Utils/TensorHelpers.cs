@@ -35,7 +35,7 @@ internal static class TensorHelpers
 
         for (int i = 0; i < totalSize - 1; i += 2)
         {
-            double u1 = 1.0 - rng.NextDouble();
+            double u1 = Math.Max(1.0 - rng.NextDouble(), double.Epsilon);
             double u2 = rng.NextDouble();
             double magnitude = Math.Sqrt(-2.0 * Math.Log(u1));
             result[i] = (float)(magnitude * Math.Cos(2.0 * Math.PI * u2));
@@ -44,7 +44,7 @@ internal static class TensorHelpers
 
         if (totalSize % 2 == 1)
         {
-            double u1 = 1.0 - rng.NextDouble();
+            double u1 = Math.Max(1.0 - rng.NextDouble(), double.Epsilon);
             double u2 = rng.NextDouble();
             result[totalSize - 1] = (float)(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2));
         }

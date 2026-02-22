@@ -18,6 +18,7 @@ internal sealed class OnnxInferencePipeline : IDisposable
     private readonly InferenceSession _acousticDecoder;
     private readonly InferenceSession _acousticConnector;
     private readonly InferenceSession _eosClassifier;
+    private readonly SessionOptions _sessionOptions;
     private readonly float[] _typeEmbeddings; // [2, 896] flattened: speech=0..895, text=896..1791
     private readonly BpeTokenizer _tokenizer;
     private readonly VoicePresetLoader _voicePresets;
@@ -43,15 +44,15 @@ internal sealed class OnnxInferencePipeline : IDisposable
         CfgScale = cfgScale;
         Seed = seed;
 
-        var opts = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
+        _sessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
 
-        _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), opts);
-        _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), opts);
-        _ttsLmStep = new InferenceSession(Path.Combine(modelsDir, "tts_lm_step.onnx"), opts);
-        _predictionHead = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), opts);
-        _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), opts);
-        _acousticConnector = new InferenceSession(Path.Combine(modelsDir, "acoustic_connector.onnx"), opts);
-        _eosClassifier = new InferenceSession(Path.Combine(modelsDir, "eos_classifier.onnx"), opts);
+        _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), _sessionOptions);
+        _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), _sessionOptions);
+        _ttsLmStep = new InferenceSession(Path.Combine(modelsDir, "tts_lm_step.onnx"), _sessionOptions);
+        _predictionHead = new InferenceSession(Path.Combine(modelsDir, "prediction_head.onnx"), _sessionOptions);
+        _acousticDecoder = new InferenceSession(Path.Combine(modelsDir, "acoustic_decoder.onnx"), _sessionOptions);
+        _acousticConnector = new InferenceSession(Path.Combine(modelsDir, "acoustic_connector.onnx"), _sessionOptions);
+        _eosClassifier = new InferenceSession(Path.Combine(modelsDir, "eos_classifier.onnx"), _sessionOptions);
         _typeEmbeddings = VoicePresetLoader.ReadNpyFile(Path.Combine(modelsDir, "type_embeddings.npy"));
         _tokenizer = new BpeTokenizer(Path.Combine(modelsDir, "tokenizer.json"));
         _voicePresets = new VoicePresetLoader(Path.Combine(modelsDir, "voices"));
@@ -404,5 +405,6 @@ internal sealed class OnnxInferencePipeline : IDisposable
         _acousticDecoder.Dispose();
         _acousticConnector.Dispose();
         _eosClassifier.Dispose();
+        _sessionOptions.Dispose();
     }
 }

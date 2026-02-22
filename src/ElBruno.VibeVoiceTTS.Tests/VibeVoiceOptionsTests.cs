@@ -11,7 +11,7 @@ public class VibeVoiceOptionsTests
         Assert.Null(opts.ModelPath);
         Assert.Equal("elbruno/VibeVoice-Realtime-0.5B-ONNX", opts.HuggingFaceRepo);
         Assert.Equal(20, opts.DiffusionSteps);
-        Assert.Equal(3.0f, opts.CfgScale);
+        Assert.Equal(1.5f, opts.CfgScale);
         Assert.Equal(24000, opts.SampleRate);
         Assert.Equal(42, opts.Seed);
     }
