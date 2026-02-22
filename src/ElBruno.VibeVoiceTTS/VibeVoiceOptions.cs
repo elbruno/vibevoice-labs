@@ -77,6 +77,31 @@ public sealed class VibeVoiceOptions
     public int Seed { get; set; } = 42;
 
     /// <summary>
+    /// Execution provider for ONNX Runtime inference (default: Cpu).
+    /// Set to DirectML for Windows GPU acceleration (any vendor), or Cuda for NVIDIA GPUs.
+    /// The consumer must install the corresponding NuGet package:
+    /// - DirectML: Microsoft.ML.OnnxRuntime.DirectML
+    /// - Cuda: Microsoft.ML.OnnxRuntime.Gpu
+    /// </summary>
+    public ExecutionProvider ExecutionProvider { get; set; } = ExecutionProvider.Cpu;
+
+    private int _gpuDeviceId;
+
+    /// <summary>
+    /// GPU device index when using DirectML or CUDA (default: 0).
+    /// Ignored when ExecutionProvider is Cpu.
+    /// </summary>
+    public int GpuDeviceId
+    {
+        get => _gpuDeviceId;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(GpuDeviceId));
+            _gpuDeviceId = value;
+        }
+    }
+
+    /// <summary>
     /// Returns the effective model path, falling back to the OS-specific shared cache.
     /// </summary>
     public string GetEffectiveModelPath()

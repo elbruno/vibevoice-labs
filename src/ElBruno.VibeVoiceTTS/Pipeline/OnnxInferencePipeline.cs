@@ -38,13 +38,15 @@ internal sealed class OnnxInferencePipeline : IDisposable
     private const float SpeechBiasFactor = -0.0703125f;
     private const int MaxFrames = 200;
 
-    public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 20, float cfgScale = 1.5f, int seed = 42)
+    public OnnxInferencePipeline(string modelsDir, int diffusionSteps = 20, float cfgScale = 1.5f, int seed = 42,
+        ExecutionProvider executionProvider = ExecutionProvider.Cpu, int gpuDeviceId = 0)
     {
         DiffusionSteps = diffusionSteps;
         CfgScale = cfgScale;
         Seed = seed;
 
         _sessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
+        ConfigureExecutionProvider(_sessionOptions, executionProvider, gpuDeviceId);
 
         _lmWithKv = new InferenceSession(Path.Combine(modelsDir, "lm_with_kv.onnx"), _sessionOptions);
         _ttsLmPrefill = new InferenceSession(Path.Combine(modelsDir, "tts_lm_prefill.onnx"), _sessionOptions);
@@ -56,6 +58,36 @@ internal sealed class OnnxInferencePipeline : IDisposable
         _typeEmbeddings = VoicePresetLoader.ReadNpyFile(Path.Combine(modelsDir, "type_embeddings.npy"));
         _tokenizer = new BpeTokenizer(Path.Combine(modelsDir, "tokenizer.json"));
         _voicePresets = new VoicePresetLoader(Path.Combine(modelsDir, "voices"));
+    }
+
+    /// <summary>
+    /// Configures the SessionOptions with the requested execution provider.
+    /// Falls back to CPU if the provider is unavailable (e.g., missing NuGet package or no compatible GPU).
+    /// </summary>
+    internal static void ConfigureExecutionProvider(SessionOptions options, ExecutionProvider provider, int deviceId)
+    {
+        if (provider == ExecutionProvider.Cpu)
+            return;
+
+        try
+        {
+            switch (provider)
+            {
+                case ExecutionProvider.DirectML:
+                    options.AppendExecutionProvider_DML(deviceId);
+                    break;
+                case ExecutionProvider.Cuda:
+                    options.AppendExecutionProvider_CUDA(deviceId);
+                    break;
+            }
+        }
+        catch (Exception)
+        {
+            // GPU provider not available — fall back to CPU silently.
+            // This happens when the consumer hasn't installed the corresponding NuGet package
+            // (Microsoft.ML.OnnxRuntime.DirectML or Microsoft.ML.OnnxRuntime.Gpu)
+            // or when no compatible GPU hardware is present.
+        }
     }
 
     public float[] GenerateAudio(string text, string voice)
