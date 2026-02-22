@@ -79,6 +79,16 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
         // Resolve short preset names (e.g. "Carter") to internal names (e.g. "en-Carter_man")
         var resolvedName = ResolveVoiceName(voiceName);
 
+        // Auto-download voice if not available on disk
+        if (!ModelManager.IsVoiceAvailable(ModelPath, resolvedName))
+        {
+            await ModelManager.EnsureVoiceAvailableAsync(
+                ModelPath, _options.HuggingFaceRepo, resolvedName, null, cancellationToken);
+
+            // Reload pipeline to pick up newly downloaded voice
+            await ReloadPipelineAsync();
+        }
+
         var pipeline = await GetOrCreatePipelineAsync();
 
         // Run inference on a thread pool thread to avoid blocking
@@ -97,7 +107,6 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
         var pipeline = _pipeline;
         if (pipeline is not null)
         {
-            // Map internal names back to short names where possible
             return pipeline.GetAvailableVoices()
                 .Select(internalName =>
                 {
@@ -108,7 +117,11 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
                 .ToArray();
         }
 
-        return Enum.GetNames<VibeVoicePreset>();
+        // No pipeline loaded — check disk for downloaded voices
+        return Enum.GetValues<VibeVoicePreset>()
+            .Where(p => ModelManager.IsVoiceAvailable(ModelPath, p.ToVoiceName()))
+            .Select(p => p.ToString())
+            .ToArray();
     }
 
     /// <inheritdoc/>
@@ -123,7 +136,6 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
                     if (VibeVoicePresetExtensions.TryParseVoice(internalName, out var preset))
                         return preset.ToVoiceInfo();
 
-                    // Unknown voice directory — parse what we can from the name
                     var parts = internalName.Split('-', 2);
                     var lang = parts.Length > 1 ? parts[0] : "unknown";
                     var rest = parts.Length > 1 ? parts[1] : internalName;
@@ -135,9 +147,43 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
                 .ToArray();
         }
 
+        // No pipeline loaded — check disk for downloaded voices
+        return Enum.GetValues<VibeVoicePreset>()
+            .Where(p => ModelManager.IsVoiceAvailable(ModelPath, p.ToVoiceName()))
+            .Select(p => p.ToVoiceInfo())
+            .ToArray();
+    }
+
+    /// <inheritdoc/>
+    public string[] GetSupportedVoices()
+    {
+        return Enum.GetNames<VibeVoicePreset>();
+    }
+
+    /// <inheritdoc/>
+    public VoiceInfo[] GetSupportedVoiceDetails()
+    {
         return Enum.GetValues<VibeVoicePreset>()
             .Select(p => p.ToVoiceInfo())
             .ToArray();
+    }
+
+    /// <inheritdoc/>
+    public async Task EnsureVoiceAvailableAsync(
+        string voiceName,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentException.ThrowIfNullOrWhiteSpace(voiceName);
+
+        var resolvedName = ResolveVoiceName(voiceName);
+
+        await ModelManager.EnsureVoiceAvailableAsync(
+            ModelPath, _options.HuggingFaceRepo, resolvedName, progress, cancellationToken);
+
+        // Reload pipeline to pick up newly downloaded voice
+        await ReloadPipelineAsync();
     }
 
     /// <summary>
@@ -178,6 +224,20 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
                 _options.GpuDeviceId);
 
             return _pipeline;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
+    private async Task ReloadPipelineAsync()
+    {
+        await _initLock.WaitAsync();
+        try
+        {
+            _pipeline?.Dispose();
+            _pipeline = null;
         }
         finally
         {

@@ -45,14 +45,34 @@ public interface IVibeVoiceSynthesizer : IDisposable
     void SaveWav(string path, float[] audioSamples);
 
     /// <summary>
-    /// Returns the friendly names of available voice presets (e.g. "Carter", "Emma").
-    /// These names can be used directly with the string overload of GenerateAudioAsync.
+    /// Returns the friendly names of voice presets currently downloaded on disk (e.g. "Carter", "Emma").
+    /// These names can be used directly with GenerateAudioAsync.
+    /// Use GetSupportedVoices() to see all voices that can be downloaded on demand.
     /// </summary>
     string[] GetAvailableVoices();
 
     /// <summary>
-    /// Returns detailed information about all available voice presets,
-    /// including display name, internal name, language, and gender.
+    /// Returns detailed information about voice presets currently downloaded on disk.
     /// </summary>
     VoiceInfo[] GetAvailableVoiceDetails();
+
+    /// <summary>
+    /// Returns the friendly names of all supported voice presets, including those not yet downloaded.
+    /// Voices not on disk will be auto-downloaded when first used with GenerateAudioAsync.
+    /// </summary>
+    string[] GetSupportedVoices();
+
+    /// <summary>
+    /// Returns detailed information about all supported voice presets, including those not yet downloaded.
+    /// </summary>
+    VoiceInfo[] GetSupportedVoiceDetails();
+
+    /// <summary>
+    /// Downloads a specific voice preset if not already available.
+    /// Accepts both short names ("Davis") and internal names ("en-Davis_man").
+    /// </summary>
+    Task EnsureVoiceAvailableAsync(
+        string voiceName,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 }

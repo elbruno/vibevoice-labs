@@ -49,8 +49,15 @@ internal sealed class ModelManager
         "config.json"
     ];
 
-    // Default voice presets with KV-cache data
-    private static readonly string[] VoiceNames = ["en-Carter_man", "en-Emma_woman"];
+    // Default voice presets with KV-cache data (downloaded by EnsureModelAvailableAsync)
+    private static readonly string[] DefaultVoiceNames = ["en-Carter_man", "en-Emma_woman"];
+
+    // All known voice presets (can be downloaded on demand)
+    internal static readonly string[] AllVoiceNames =
+    [
+        "en-Carter_man", "en-Davis_man", "en-Emma_woman",
+        "en-Frank_man", "en-Grace_woman", "en-Mike_man"
+    ];
 
     /// <summary>
     /// Checks whether all required model files exist in the specified directory.
@@ -80,33 +87,8 @@ internal sealed class ModelManager
         filesToDownload.AddRange(OptionalFiles);
 
         // Add voice preset KV-cache files
-        foreach (var voice in VoiceNames)
-        {
-            // Metadata
-            filesToDownload.Add($"voices/{voice}/metadata.json");
-            // TTS-LM KV-cache (20 layers)
-            for (int i = 0; i < 20; i++)
-            {
-                filesToDownload.Add($"voices/{voice}/tts_kv_key_{i}.npy");
-                filesToDownload.Add($"voices/{voice}/tts_kv_value_{i}.npy");
-            }
-            // LM KV-cache (4 layers)
-            for (int i = 0; i < 4; i++)
-            {
-                filesToDownload.Add($"voices/{voice}/lm_kv_key_{i}.npy");
-                filesToDownload.Add($"voices/{voice}/lm_kv_value_{i}.npy");
-            }
-            // Negative path
-            filesToDownload.Add($"voices/{voice}/negative/tts_lm_hidden.npy");
-            for (int i = 0; i < 20; i++)
-            {
-                filesToDownload.Add($"voices/{voice}/negative/tts_kv_key_{i}.npy");
-                filesToDownload.Add($"voices/{voice}/negative/tts_kv_value_{i}.npy");
-            }
-            // Hidden states
-            filesToDownload.Add($"voices/{voice}/tts_lm_hidden.npy");
-            filesToDownload.Add($"voices/{voice}/lm_hidden.npy");
-        }
+        foreach (var voice in DefaultVoiceNames)
+            filesToDownload.AddRange(GetVoiceFiles(voice));
 
         // Filter out already-downloaded files
         var missingFiles = filesToDownload
@@ -284,6 +266,129 @@ internal sealed class ModelManager
             TotalBytes = totalBytes,
             Message = "All model files downloaded and validated."
         });
+    }
+
+    /// <summary>
+    /// Checks whether a specific voice preset is downloaded.
+    /// </summary>
+    internal static bool IsVoiceAvailable(string modelPath, string voiceInternalName)
+    {
+        var voiceDir = Path.Combine(modelPath, "voices", voiceInternalName);
+        return Directory.Exists(voiceDir) && File.Exists(Path.Combine(voiceDir, "metadata.json"));
+    }
+
+    /// <summary>
+    /// Downloads a single voice preset from HuggingFace if not already present.
+    /// </summary>
+    internal static async Task EnsureVoiceAvailableAsync(
+        string modelPath,
+        string huggingFaceRepo,
+        string voiceInternalName,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsVoiceAvailable(modelPath, voiceInternalName))
+        {
+            progress?.Report(new DownloadProgress
+            {
+                Stage = DownloadStage.Complete,
+                PercentComplete = 100,
+                Message = $"Voice '{voiceInternalName}' already available."
+            });
+            return;
+        }
+
+        var filesToDownload = GetVoiceFiles(voiceInternalName);
+        var missingFiles = filesToDownload
+            .Where(f => !File.Exists(Path.Combine(modelPath, f)))
+            .ToList();
+
+        if (missingFiles.Count == 0)
+        {
+            progress?.Report(new DownloadProgress
+            {
+                Stage = DownloadStage.Complete,
+                PercentComplete = 100,
+                Message = $"Voice '{voiceInternalName}' already available."
+            });
+            return;
+        }
+
+        progress?.Report(new DownloadProgress
+        {
+            Stage = DownloadStage.Downloading,
+            Message = $"Downloading voice '{voiceInternalName}' ({missingFiles.Count} files)..."
+        });
+
+        int fileIndex = 0;
+        foreach (var file in missingFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            fileIndex++;
+
+            var localPath = Path.Combine(modelPath, file);
+            var localDir = Path.GetDirectoryName(localPath);
+            if (!string.IsNullOrEmpty(localDir))
+                Directory.CreateDirectory(localDir);
+
+            var url = GetHuggingFaceUrl(huggingFaceRepo, file);
+
+            progress?.Report(new DownloadProgress
+            {
+                Stage = DownloadStage.Downloading,
+                PercentComplete = (double)fileIndex / missingFiles.Count * 100,
+                CurrentFile = file,
+                Message = $"[{fileIndex}/{missingFiles.Count}] Downloading {file}..."
+            });
+
+            using var response = await SharedClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException(
+                    $"Failed to download voice file '{file}' from https://huggingface.co/{huggingFaceRepo}: {(int)response.StatusCode} {response.StatusCode}");
+
+            await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var fileStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+            await contentStream.CopyToAsync(fileStream, cancellationToken);
+        }
+
+        progress?.Report(new DownloadProgress
+        {
+            Stage = DownloadStage.Complete,
+            PercentComplete = 100,
+            Message = $"Voice '{voiceInternalName}' downloaded successfully."
+        });
+    }
+
+    /// <summary>
+    /// Returns the list of HuggingFace file paths for a voice preset.
+    /// </summary>
+    internal static List<string> GetVoiceFiles(string voiceInternalName)
+    {
+        var files = new List<string>();
+        files.Add($"voices/{voiceInternalName}/metadata.json");
+        // TTS-LM KV-cache (20 layers)
+        for (int i = 0; i < 20; i++)
+        {
+            files.Add($"voices/{voiceInternalName}/tts_kv_key_{i}.npy");
+            files.Add($"voices/{voiceInternalName}/tts_kv_value_{i}.npy");
+        }
+        // LM KV-cache (4 layers)
+        for (int i = 0; i < 4; i++)
+        {
+            files.Add($"voices/{voiceInternalName}/lm_kv_key_{i}.npy");
+            files.Add($"voices/{voiceInternalName}/lm_kv_value_{i}.npy");
+        }
+        // Negative path
+        files.Add($"voices/{voiceInternalName}/negative/tts_lm_hidden.npy");
+        for (int i = 0; i < 20; i++)
+        {
+            files.Add($"voices/{voiceInternalName}/negative/tts_kv_key_{i}.npy");
+            files.Add($"voices/{voiceInternalName}/negative/tts_kv_value_{i}.npy");
+        }
+        // Hidden states
+        files.Add($"voices/{voiceInternalName}/tts_lm_hidden.npy");
+        files.Add($"voices/{voiceInternalName}/lm_hidden.npy");
+        return files;
     }
 
     private static string GetHuggingFaceUrl(string repo, string file)
