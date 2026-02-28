@@ -57,3 +57,23 @@
   - Scenario 07 (MAUI): ❌ Build failed (requires maui-android workload — not a code issue)
   - Python scripts (01, 05, 06): ✅ All syntax valid
 - **Summary:** All working code compiles and all active tests pass. No fixes needed.
+
+### 2025-01-16: Security validation tests for Issue #17
+- **Issue #17:** Security & performance audit from LocalEmbeddings v1.1.0 lessons
+- **Added validation tests** in `src/ElBruno.VibeVoiceTTS.Tests/VibeVoiceOptionsTests.cs`:
+  - **ModelPath validation tests:** null/empty rejection, path traversal (`..\\`) prevention, relative path rejection, absolute path acceptance
+  - **Text length validation tests:** empty/whitespace rejection, 500+ character limit enforcement
+  - **VoicePreset enum validation tests:** valid voice name parsing (Carter, Davis, Emma, Frank, Grace, Mike), internal name mapping (en-Carter_man), invalid name rejection
+  - **File name character validation tests:** cross-platform invalid character detection (<, >, :, ", /, \\, |, ?, *)
+- **Test patterns used:**
+  - `[SkippableFact]` for cross-platform compatibility (per repo standard from IntegrationTests)
+  - Tests document expected security behavior (some skipped until Naomi/Alex implement fixes)
+  - Clear skip messages reference Issue #17 for context
+- **Test results:** 146 total, 136 passed, 10 skipped (5 integration tests need ONNX models, 5 security tests await implementation)
+- **Learnings:**
+  - xUnit enum default values: `default(VibeVoicePreset)` equals first enum value (Carter), can't use `Assert.NotEqual(default, preset)` for validation
+  - Fixed by checking `preset.ToVoiceName()` returns non-null/non-empty string instead
+  - Security tests should use Skip.If() to document unimplemented features rather than asserting exceptions that don't exist yet
+  - Cross-platform file name validation needs hardcoded char array (can't rely on `Path.GetInvalidFileNameChars()` alone)
+- **Branch:** `squad/issue-17-security-audit`
+- **Commit:** `test(security): add validation tests for input security (#17)`
