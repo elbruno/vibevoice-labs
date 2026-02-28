@@ -7,6 +7,10 @@ namespace ElBruno.VibeVoiceTTS;
 /// </summary>
 internal sealed class ModelManager
 {
+    /// <summary>
+    /// Cross-platform invalid file name characters to prevent security issues.
+    /// </summary>
+    internal static readonly char[] InvalidFileNameChars = ['<', '>', ':', '"', '|', '?', '*', '\\', '/', '\0'];
     // Files required for inference (autoregressive pipeline with KV-cache)
     private static readonly string[] RequiredFiles =
     [
@@ -122,6 +126,8 @@ internal sealed class ModelManager
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        ValidateVoicePresetName(voiceInternalName);
+
         using var downloader = new HuggingFaceDownloader();
 
         var voiceFiles = GetVoiceFiles(voiceInternalName);
@@ -184,5 +190,22 @@ internal sealed class ModelManager
         files.Add($"voices/{voiceInternalName}/tts_lm_hidden.npy");
         files.Add($"voices/{voiceInternalName}/lm_hidden.npy");
         return files;
+    }
+
+    /// <summary>
+    /// Validates that a voice preset name does not contain invalid file name characters.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when the name contains invalid characters.</exception>
+    internal static void ValidateVoicePresetName(string voiceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(voiceName, nameof(voiceName));
+
+        foreach (var invalidChar in InvalidFileNameChars)
+        {
+            if (voiceName.Contains(invalidChar))
+                throw new ArgumentException(
+                    $"Voice preset name contains invalid character '{invalidChar}': '{voiceName}'",
+                    nameof(voiceName));
+        }
     }
 }

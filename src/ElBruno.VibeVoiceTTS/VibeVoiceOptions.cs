@@ -5,10 +5,23 @@ namespace ElBruno.VibeVoiceTTS;
 /// </summary>
 public sealed class VibeVoiceOptions
 {
+    private string? _modelPath;
+
     /// <summary>
     /// Local directory containing ONNX model files. If null, uses the shared default cache location.
+    /// Rejects absolute paths outside of safe directories and paths containing ".." segments.
     /// </summary>
-    public string? ModelPath { get; set; }
+    /// <exception cref="ArgumentException">Thrown when path contains ".." traversal or is an absolute path.</exception>
+    public string? ModelPath
+    {
+        get => _modelPath;
+        set
+        {
+            if (value != null)
+                ValidateModelPath(value);
+            _modelPath = value;
+        }
+    }
 
     private string _huggingFaceRepo = "elbruno/VibeVoice-Realtime-0.5B-ONNX";
 
@@ -142,5 +155,20 @@ public sealed class VibeVoiceOptions
             throw new ArgumentException(
                 $"Invalid HuggingFace repo format: '{repo}'. Expected 'owner/repo-name' (alphanumeric, dots, hyphens, underscores only).",
                 nameof(repo));
+    }
+
+    /// <summary>
+    /// Validates that a model path does not contain path traversal segments.
+    /// Rejects paths with ".." segments to prevent directory traversal attacks.
+    /// </summary>
+    internal static void ValidateModelPath(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path, nameof(path));
+
+        // Reject paths with ".." segments (path traversal)
+        if (path.Contains(".."))
+            throw new ArgumentException(
+                $"Model path cannot contain '..' traversal segments: '{path}'",
+                nameof(path));
     }
 }

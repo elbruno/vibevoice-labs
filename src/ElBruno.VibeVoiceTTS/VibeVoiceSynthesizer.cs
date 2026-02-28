@@ -63,6 +63,7 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
         VibeVoicePreset voice,
         CancellationToken cancellationToken = default)
     {
+        ValidateVoicePreset(voice);
         return GenerateAudioAsync(text, voice.ToVoiceName(), cancellationToken);
     }
 
@@ -75,6 +76,7 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
         ArgumentException.ThrowIfNullOrWhiteSpace(voiceName);
+        ValidateTextLength(text);
 
         // Resolve short preset names (e.g. "Carter") to internal names (e.g. "en-Carter_man")
         var resolvedName = ResolveVoiceName(voiceName);
@@ -198,6 +200,30 @@ public sealed class VibeVoiceSynthesizer : IVibeVoiceSynthesizer
 
         // Otherwise assume it's already an internal name (e.g. "en-Carter_man")
         return voiceName;
+    }
+
+    /// <summary>
+    /// Validates that text input is within safe length limits.
+    /// Maximum 500 characters to prevent resource exhaustion.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when text exceeds 500 characters.</exception>
+    internal static void ValidateTextLength(string text)
+    {
+        const int MaxTextLength = 500;
+        if (text.Length > MaxTextLength)
+            throw new ArgumentException(
+                $"Text input exceeds maximum length of {MaxTextLength} characters (received {text.Length} characters).",
+                nameof(text));
+    }
+
+    /// <summary>
+    /// Validates that a voice preset enum value is defined.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when voice preset is not a valid enum value.</exception>
+    internal static void ValidateVoicePreset(VibeVoicePreset voice)
+    {
+        if (!Enum.IsDefined(typeof(VibeVoicePreset), voice))
+            throw new ArgumentException($"Invalid voice preset value: {voice}", nameof(voice));
     }
 
     private async Task<OnnxInferencePipeline> GetOrCreatePipelineAsync()
