@@ -94,6 +94,17 @@ internal sealed class VoicePresetLoader
         {
             var voiceName = Path.GetFileName(dir);
             
+            // Validate voice name for cross-platform safety
+            try
+            {
+                ModelManager.ValidateVoicePresetName(voiceName);
+            }
+            catch (ArgumentException)
+            {
+                // Skip voices with invalid names
+                continue;
+            }
+            
             // Look for metadata.json (KV-cache voice preset)
             var metadataPath = Path.Combine(dir, "metadata.json");
             if (File.Exists(metadataPath))
