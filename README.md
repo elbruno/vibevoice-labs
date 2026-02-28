@@ -244,6 +244,10 @@ dotnet test src/ElBruno.VibeVoiceTTS.Tests/ElBruno.VibeVoiceTTS.Tests.csproj
 - ONNX Runtime compatible platform (Windows, Linux, macOS)
 - Python 3.11+ (only needed for ONNX model export — not for runtime use)
 
+## 🔗 Related Projects
+
+- <a href="https://github.com/elbruno/ElBruno.PersonaPlex">ElBruno.PersonaPlex</a> — C# wrapper for NVIDIA's PersonaPlex-7B-v1 full-duplex speech-to-speech model, using ONNX Runtime for local inference. Pre-exported ONNX models: <a href="https://huggingface.co/elbruno/personaplex-7b-v1-onnx">elbruno/personaplex-7b-v1-onnx</a>
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please:
