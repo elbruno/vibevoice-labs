@@ -83,3 +83,22 @@
 - Port configurable via PORT env var (default 8000) for Aspire integration
 - All Python files compile successfully via `py_compile`
 - WebSocket protocol contract written to `.ai-team/decisions/inbox/naomi-websocket-protocol.md`
+
+### 2026-02-28: Issue #17 — Security Hardening (Input Validation)
+- **Input Validation in VibeVoiceOptions.cs:**
+  - Added `ModelPath` property validation: rejects paths containing ".." traversal segments
+  - Allows both absolute and relative paths (needed for default cache directories)
+  - Added `ValidateModelPath()` method with clear exception messages
+- **Text Length Validation in VibeVoiceSynthesizer.cs:**
+  - Added `ValidateTextLength()` enforcing 500 character maximum
+  - Prevents resource exhaustion attacks via excessive text input
+  - Called in `GenerateAudioAsync()` before pipeline initialization
+- **Voice Preset Enum Validation in VibeVoiceSynthesizer.cs:**
+  - Added `ValidateVoicePreset()` checking `Enum.IsDefined()`
+  - Prevents invalid enum casts or out-of-range values
+- **Cross-Platform File Name Validation in ModelManager.cs:**
+  - Added `InvalidFileNameChars` constant: `['<', '>', ':', '"', '|', '?', '*', '\\', '/', '\0']`
+  - Added `ValidateVoicePresetName()` rejecting any invalid characters
+  - Applied in `VoicePresetLoader.DiscoverVoicesFromDirectory()` to skip malformed voice directories
+- **Design Pattern:** All validation methods are `internal static` for testability and reuse
+- **Documentation:** Added XML doc comments to all validation methods explaining rules and exceptions
